@@ -1,0 +1,10 @@
+{
+    "scripts": {
+        "db:push": "npx supabase db push",
+        "db:pull": "npx supabase db pull",
+        "db:reset": "npx supabase db reset",
+        "db:diff": "npx supabase db diff",
+        "supabase:link": "npx supabase link",
+        "supabase:status": "npx supabase status"
+    }
+}

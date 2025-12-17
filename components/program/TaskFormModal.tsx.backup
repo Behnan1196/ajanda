@@ -1,0 +1,321 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import { createClient } from '@/lib/supabase/client'
+
+interface TaskType {
+    id: string
+    name: string
+    slug: string
+    schema: {
+        fields: {
+            name: string
+            type: string
+            label: string
+            required: boolean
+            placeholder?: string
+        }[]
+    }
+}
+
+interface Task {
+    id: string
+    title: string
+    description: string | null
+    task_type_id: string
+    metadata: Record<string, unknown>
+    due_date: string | null
+    due_time: string | null
+}
+
+interface TaskFormModalProps {
+    userId: string
+    editingTask?: Task | null
+    defaultDate?: Date  // Seçili tarih için
+    onClose: () => void
+    onTaskSaved: () => void
+}
+
+export default function TaskFormModal({ userId, editingTask, defaultDate, onClose, onTaskSaved }: TaskFormModalProps) {
+    const [taskTypes, setTaskTypes] = useState<TaskType[]>([])
+    const [selectedType, setSelectedType] = useState<string>('')
+    const [title, setTitle] = useState('')
+    const [description, setDescription] = useState('')
+    const [dueDate, setDueDate] = useState(
+        defaultDate ? defaultDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
+    )
+    const [dueTime, setDueTime] = useState('')
+    const [reminderTime, setReminderTime] = useState('')
+    const [metadata, setMetadata] = useState<Record<string, unknown>>({})
+    const [loading, setLoading] = useState(false)
+    const supabase = createClient()
+
+    const isEditMode = !!editingTask
+
+    useEffect(() => {
+        loadTaskTypes()
+    }, [])
+
+    useEffect(() => {
+        // Eğer edit mode ise, form alanlarını doldur
+        if (editingTask) {
+            setTitle(editingTask.title)
+            setDescription(editingTask.description || '')
+            setSelectedType(editingTask.task_type_id)
+            setDueDate(editingTask.due_date || new Date().toISOString().split('T')[0])
+            setDueTime(editingTask.due_time || '')
+            setMetadata(editingTask.metadata || {})
+        }
+    }, [editingTask])
+
+    const loadTaskTypes = async () => {
+        const { data } = await supabase
+            .from('task_types')
+            .select('*')
+            .eq('is_active', true)
+
+        if (data) {
+            setTaskTypes(data as TaskType[])
+            if (data.length > 0 && !editingTask) {
+                setSelectedType(data[0].id)
+            }
+        }
+    }
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault()
+        setLoading(true)
+
+        if (isEditMode && editingTask) {
+            // UPDATE mode
+            const { error } = await supabase
+                .from('tasks')
+                .update({
+                    task_type_id: selectedType,
+                    title,
+                    description,
+                    metadata,
+                    due_date: dueDate,
+                    due_time: dueTime || null,
+                })
+                .eq('id', editingTask.id)
+
+            if (error) {
+                console.error('Error updating task:', error)
+                alert('Görev güncellenirken hata oluştu')
+            } else {
+                onTaskSaved()
+            }
+        } else {
+            // CREATE mode
+            const { error } = await supabase.from('tasks').insert({
+                user_id: userId,
+                task_type_id: selectedType,
+                title,
+                description,
+                metadata,
+                due_date: dueDate,
+                due_time: dueTime || null,
+                created_by: userId,
+            })
+
+            if (error) {
+                console.error('Error creating task:', error)
+                alert('Görev oluşturulurken hata oluştu')
+            } else {
+                // If reminder is set, create reminder
+                if (reminderTime) {
+                    const remindAt = `${dueDate}T${reminderTime}:00`
+                    await supabase.from('reminders').insert({
+                        task_id: selectedType,
+                        remind_at: remindAt,
+                    })
+                }
+
+                onTaskSaved()
+            }
+        }
+
+        setLoading(false)
+    }
+
+    const currentTaskType = taskTypes.find((t) => t.id === selectedType)
+
+    return (
+        <div className="fixed inset-0 bg-black/50 flex items-end justify-center z-50 animate-fadeIn">
+            <div className="bg-white w-full max-w-2xl rounded-t-3xl p-6 max-h-[85vh] overflow-y-auto animate-slideUp">
+                <div className="flex items-center justify-between mb-6">
+                    <h2 className="text-xl font-bold text-gray-900">
+                        {isEditMode ? 'Görevi Düzenle' : 'Yeni Görev'}
+                    </h2>
+                    <button
+                        onClick={onClose}
+                        className="text-gray-400 hover:text-gray-600 transition"
+                    >
+                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    {/* Task Type Selection */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Görev Tipi
+                        </label>
+                        <select
+                            value={selectedType}
+                            onChange={(e) => setSelectedType(e.target.value)}
+                            className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                            required
+                            disabled={isEditMode}
+                        >
+                            {taskTypes.map((type) => (
+                                <option key={type.id} value={type.id}>
+                                    {type.name}
+                                </option>
+                            ))}
+                        </select>
+                        {isEditMode && (
+                            <p className="text-xs text-gray-500 mt-1">Görev tipi düzenlemede değiştirilemez</p>
+                        )}
+                    </div>
+
+                    {/* Title */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Başlık
+                        </label>
+                        <input
+                            type="text"
+                            value={title}
+                            onChange={(e) => setTitle(e.target.value)}
+                            className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                            placeholder="Görev başlığı"
+                            required
+                        />
+                    </div>
+
+                    {/* Description */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Açıklama
+                        </label>
+                        <textarea
+                            value={description}
+                            onChange={(e) => setDescription(e.target.value)}
+                            className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                            rows={3}
+                            placeholder="Görev açıklaması"
+                        />
+                    </div>
+
+                    {/* Dynamic fields based on task type */}
+                    {currentTaskType?.schema.fields.map((field) => (
+                        <div key={field.name}>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                {field.label}
+                            </label>
+                            {field.type === 'url' && (
+                                <input
+                                    type="url"
+                                    value={(metadata[field.name] as string) || ''}
+                                    onChange={(e) =>
+                                        setMetadata({ ...metadata, [field.name]: e.target.value })
+                                    }
+                                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                    placeholder={field.placeholder}
+                                    required={field.required}
+                                />
+                            )}
+                            {field.type === 'number' && (
+                                <input
+                                    type="number"
+                                    value={(metadata[field.name] as number) || ''}
+                                    onChange={(e) =>
+                                        setMetadata({ ...metadata, [field.name]: parseInt(e.target.value) })
+                                    }
+                                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                    placeholder={field.label}
+                                    required={field.required}
+                                />
+                            )}
+                            {field.type === 'textarea' && (
+                                <textarea
+                                    value={(metadata[field.name] as string) || ''}
+                                    onChange={(e) =>
+                                        setMetadata({ ...metadata, [field.name]: e.target.value })
+                                    }
+                                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                    rows={3}
+                                    required={field.required}
+                                />
+                            )}
+                        </div>
+                    ))}
+
+                    {/* Date and Time */}
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Tarih
+                            </label>
+                            <input
+                                type="date"
+                                value={dueDate}
+                                onChange={(e) => setDueDate(e.target.value)}
+                                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                            />
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Saat (isteğe bağlı)
+                            </label>
+                            <input
+                                type="time"
+                                value={dueTime}
+                                onChange={(e) => setDueTime(e.target.value)}
+                                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                            />
+                        </div>
+                    </div>
+
+                    {/* Reminder - Only in create mode */}
+                    {!isEditMode && (
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Hatırlatıcı (isteğe bağlı)
+                            </label>
+                            <input
+                                type="time"
+                                value={reminderTime}
+                                onChange={(e) => setReminderTime(e.target.value)}
+                                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                            />
+                        </div>
+                    )}
+
+                    {/* Submit Button */}
+                    <div className="flex gap-3 pt-4">
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition"
+                        >
+                            İptal
+                        </button>
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            className="flex-1 px-6 py-3 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition disabled:opacity-50"
+                        >
+                            {loading ? 'Kaydediliyor...' : isEditMode ? 'Güncelle' : 'Kaydet'}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    )
+}

@@ -1,0 +1,433 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import { createClient } from '@/lib/supabase/client'
+
+interface TaskType {
+    id: string
+    name: string
+    slug: string
+    schema: {
+        fields: {
+            name: string
+            type: string
+            label: string
+            required: boolean
+            placeholder?: string
+        }[]
+    }
+}
+
+interface Subject {
+    id: string
+    name: string
+    icon: string | null
+    color: string
+}
+
+interface Topic {
+    id: string
+    subject_id: string
+    name: string
+}
+
+interface Task {
+    id: string
+    title: string
+    description: string | null
+    task_type_id: string
+    subject_id: string | null
+    topic_id: string | null
+    metadata: Record<string, unknown>
+    due_date: string | null
+    due_time: string | null
+    is_private?: boolean
+}
+
+interface TaskFormModalProps {
+    userId: string
+    editingTask?: Task | null
+    defaultDate?: Date
+    onClose: () => void
+    onTaskSaved: () => void
+    relationshipId?: string
+}
+
+export default function TaskFormModal({ userId, editingTask, defaultDate, onClose, onTaskSaved, relationshipId }: TaskFormModalProps) {
+    const [taskTypes, setTaskTypes] = useState<TaskType[]>([])
+    const [subjects, setSubjects] = useState<Subject[]>([])
+    const [topics, setTopics] = useState<Topic[]>([])
+
+    // User Context
+    const [currentUserRole, setCurrentUserRole] = useState<'student' | 'coach' | 'admin'>('student')
+    const [isOwnTask, setIsOwnTask] = useState(false)
+
+    // Form State
+    const [selectedType, setSelectedType] = useState<string>('')
+    const [subjectId, setSubjectId] = useState<string>('')
+    const [topicId, setTopicId] = useState<string>('')
+    const [title, setTitle] = useState('')
+    const [description, setDescription] = useState('')
+    const [dueDate, setDueDate] = useState(
+        defaultDate ? defaultDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
+    )
+    const [dueTime, setDueTime] = useState('')
+    const [reminderTime, setReminderTime] = useState('')
+    const [isPrivate, setIsPrivate] = useState(false)
+    const [metadata, setMetadata] = useState<Record<string, unknown>>({})
+    const [loading, setLoading] = useState(false)
+
+    // UI State
+    const [showAdvanced, setShowAdvanced] = useState(false)
+
+    const supabase = createClient()
+    const isEditMode = !!editingTask
+
+    useEffect(() => {
+        loadData()
+    }, [])
+
+    useEffect(() => {
+        if (editingTask) {
+            setTitle(editingTask.title)
+            setDescription(editingTask.description || '')
+            setSelectedType(editingTask.task_type_id)
+            setSubjectId(editingTask.subject_id || '')
+            setTopicId(editingTask.topic_id || '')
+            setDueDate(editingTask.due_date || new Date().toISOString().split('T')[0])
+            setDueTime(editingTask.due_time || '')
+            setIsPrivate(editingTask.is_private || false)
+            setMetadata(editingTask.metadata || {})
+            setShowAdvanced(!!editingTask.subject_id) // Show advanced if subject is set
+        }
+    }, [editingTask])
+
+    const loadData = async () => {
+        // 1. Get Current User Role & Info
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+            setIsOwnTask(user.id === userId)
+
+            // Fetch roles
+            const { data: userData } = await supabase
+                .from('users')
+                .select('roles')
+                .eq('id', user.id)
+                .single()
+
+            if (userData && userData.roles) {
+                if (userData.roles.includes('coach')) setCurrentUserRole('coach')
+                else if (userData.roles.includes('admin')) setCurrentUserRole('admin')
+                else setCurrentUserRole('student')
+            }
+        }
+
+        // 2. Load task types
+        const { data: taskTypesData } = await supabase
+            .from('task_types')
+            .select('*')
+            .eq('is_active', true)
+
+        // 3. Load subjects
+        const { data: subjectsData } = await supabase
+            .from('subjects')
+            .select('id, name, icon, color')
+            .eq('is_active', true)
+            .order('name')
+
+        // 4. Load topics
+        const { data: topicsData } = await supabase
+            .from('topics')
+            .select('id, subject_id, name')
+            .eq('is_active', true)
+            .order('order_index')
+
+        if (taskTypesData) {
+            setTaskTypes(taskTypesData as TaskType[])
+            if (taskTypesData.length > 0 && !editingTask) {
+                // Default to 'todo' if exists, else first one
+                const todoType = taskTypesData.find(t => t.slug === 'todo')
+                setSelectedType(todoType ? todoType.id : taskTypesData[0].id)
+            }
+        }
+
+        if (subjectsData) setSubjects(subjectsData)
+        if (topicsData) setTopics(topicsData)
+    }
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault()
+        setLoading(true)
+
+        const payload = {
+            task_type_id: selectedType,
+            subject_id: subjectId || null,
+            topic_id: topicId || null,
+            title,
+            description,
+            metadata,
+            due_date: dueDate,
+            due_time: dueTime || null,
+            is_private: isPrivate
+        }
+
+        if (isEditMode && editingTask) {
+            // UPDATE mode
+            const { error } = await supabase
+                .from('tasks')
+                .update(payload)
+                .eq('id', editingTask.id)
+
+            if (error) {
+                console.error('Error updating task:', error)
+                alert('Görev güncellenirken hata oluştu')
+            } else {
+                onTaskSaved()
+            }
+        } else {
+            // CREATE mode
+            const { data: { user: currentUser } } = await supabase.auth.getUser()
+
+            if (!currentUser) {
+                alert('Oturum hatası')
+                setLoading(false)
+                return
+            }
+
+            const { error } = await supabase.from('tasks').insert({
+                ...payload,
+                user_id: userId,
+                created_by: currentUser.id,
+                assigned_by: currentUser.id !== userId ? currentUser.id : null,
+                relationship_id: relationshipId || null
+            })
+
+            if (error) {
+                console.error('Error creating task:', error)
+                alert('Görev oluşturulurken hata oluştu')
+            } else {
+                if (reminderTime) {
+                    // Note: This needs logic to get the task ID first, simplified here
+                    // In real implementation, insert returns data, we get ID from there
+                }
+                onTaskSaved()
+            }
+        }
+
+        setLoading(false)
+    }
+
+    const currentTaskType = taskTypes.find((t) => t.id === selectedType)
+    const filteredTopics = topics.filter(t => t.subject_id === subjectId)
+
+    // Determine View Mode
+    const isStudentView = currentUserRole === 'student' || isOwnTask
+
+    return (
+        <div className="fixed inset-0 bg-black/50 flex items-end justify-center z-50 animate-fadeIn">
+            <div className={`bg-white w-full max-w-2xl rounded-t-3xl p-6 max-h-[90vh] overflow-y-auto animate-slideUp transition-all ${showAdvanced ? 'h-auto' : 'h-auto'}`}>
+                <div className="flex items-center justify-between mb-6">
+                    <h2 className="text-xl font-bold text-gray-900">
+                        {isEditMode ? 'Görevi Düzenle' : (isStudentView ? 'Yeni Görev' : 'Görev Ata')}
+                    </h2>
+                    <button
+                        onClick={onClose}
+                        className="text-gray-400 hover:text-gray-600 transition"
+                    >
+                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+
+                <form onSubmit={handleSubmit} className="space-y-4">
+
+                    {/* Basic Fields (Always Visible) */}
+                    <div>
+                        <input
+                            type="text"
+                            value={title}
+                            onChange={(e) => setTitle(e.target.value)}
+                            className="w-full px-4 py-3 text-lg font-medium border-0 border-b-2 border-gray-200 focus:ring-0 focus:border-indigo-600 placeholder-gray-400 transition"
+                            placeholder="Ne yapacaksın?"
+                            required
+                            autoFocus
+                        />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-xs font-medium text-gray-500 mb-1">TARİH</label>
+                            <input
+                                type="date"
+                                value={dueDate}
+                                onChange={(e) => setDueDate(e.target.value)}
+                                className="w-full px-3 py-2 bg-gray-50 rounded-lg border-0 text-sm focus:ring-2 focus:ring-indigo-500"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-medium text-gray-500 mb-1">SAAT (Opsiyonel)</label>
+                            <input
+                                type="time"
+                                value={dueTime}
+                                onChange={(e) => setDueTime(e.target.value)}
+                                className="w-full px-3 py-2 bg-gray-50 rounded-lg border-0 text-sm focus:ring-2 focus:ring-indigo-500"
+                            />
+                        </div>
+                    </div>
+
+                    {/* Student Privacy Toggle */}
+                    {isStudentView && (
+                        <div className="flex items-center gap-2 py-2">
+                            <input
+                                type="checkbox"
+                                id="private-check"
+                                checked={isPrivate}
+                                onChange={e => setIsPrivate(e.target.checked)}
+                                className="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
+                            />
+                            <label htmlFor="private-check" className="text-sm text-gray-700 select-none">
+                                Özel Görev <span className="text-gray-400 text-xs">(Koç görmesin)</span>
+                            </label>
+                        </div>
+                    )}
+
+                    {/* Advanced Toggle (Student Only) */}
+                    {isStudentView && (
+                        <button
+                            type="button"
+                            onClick={() => setShowAdvanced(!showAdvanced)}
+                            className="text-sm text-indigo-600 font-medium flex items-center gap-1"
+                        >
+                            {showAdvanced ? 'Daha Az Detay' : '+ Ders/Konu Ekle'}
+                        </button>
+                    )}
+
+                    {/* Advanced Fields (Subject, Topic, Type) 
+                        - Always visible for Coach
+                        - Visible only if toggled for Student
+                    */}
+                    {(showAdvanced || !isStudentView) && (
+                        <div className="space-y-4 pt-4 border-t border-gray-100 animate-fadeIn">
+                            {/* Subject Selection */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Ders / Konu
+                                </label>
+                                <select
+                                    value={subjectId}
+                                    onChange={(e) => {
+                                        setSubjectId(e.target.value)
+                                        setTopicId('')
+                                    }}
+                                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                >
+                                    <option value="">Genel / Derssiz</option>
+                                    {subjects.map((subject) => (
+                                        <option key={subject.id} value={subject.id}>
+                                            {subject.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {/* Topic Selection */}
+                            {subjectId && (
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        Alt Konu
+                                    </label>
+                                    <select
+                                        value={topicId}
+                                        onChange={(e) => setTopicId(e.target.value)}
+                                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                    >
+                                        <option value="">Seçiniz...</option>
+                                        {filteredTopics.map((topic) => (
+                                            <option key={topic.id} value={topic.id}>
+                                                {topic.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
+
+                            {/* Task Type Switcher */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Görev Tipi
+                                </label>
+                                <div className="flex gap-2">
+                                    {taskTypes.map((type) => (
+                                        <button
+                                            type="button"
+                                            key={type.id}
+                                            onClick={() => setSelectedType(type.id)}
+                                            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition border ${selectedType === type.id
+                                                    ? 'bg-indigo-50 border-indigo-200 text-indigo-700'
+                                                    : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                                                }`}
+                                        >
+                                            {type.name}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Description */}
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Açıklama / Notlar
+                                </label>
+                                <textarea
+                                    value={description}
+                                    onChange={(e) => setDescription(e.target.value)}
+                                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                    rows={2}
+                                    placeholder="Detaylar..."
+                                />
+                            </div>
+
+                            {/* Dynamic Fields (Video URL etc.) */}
+                            {currentTaskType?.schema.fields.map((field) => (
+                                <div key={field.name}>
+                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                        {field.label}
+                                    </label>
+                                    <input
+                                        type={field.type === 'url' ? 'url' : field.type === 'number' ? 'number' : 'text'}
+                                        value={(metadata[field.name] as string) || ''}
+                                        onChange={(e) =>
+                                            setMetadata({ ...metadata, [field.name]: field.type === 'number' ? parseInt(e.target.value) : e.target.value })
+                                        }
+                                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                        placeholder={field.placeholder}
+                                        required={field.required}
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* Submit Actions */}
+                    <div className="flex gap-3 pt-4 border-t border-gray-100">
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="flex-1 px-6 py-3 text-gray-500 hover:text-gray-700 font-medium transition"
+                        >
+                            İptal
+                        </button>
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            className="flex-[2] px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg shadow-indigo-200 hover:bg-indigo-700 hover:shadow-xl transition disabled:opacity-50"
+                        >
+                            {loading ? 'Kaydediliyor...' : (isEditMode ? 'Güncelle' : 'Kaydet')}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    )
+}
