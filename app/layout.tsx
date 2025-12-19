@@ -16,7 +16,6 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Ajanda - Kişisel Gelişim Asistanı",
   description: "Kişisel Gelişim ve Eğitim Asistanı",
-  manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
