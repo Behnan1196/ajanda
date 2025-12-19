@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { sendLocalNotification, requestNotificationPermission } from '@/lib/notifications'
+import { sendLocalNotification } from '@/lib/notifications'
 
 export default function PWAHandler() {
     const supabase = createClient()
@@ -10,26 +10,21 @@ export default function PWAHandler() {
 
     useEffect(() => {
         // Register Service Worker
-        if ('serviceWorker' in navigator) {
+        if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
             navigator.serviceWorker
                 .register('/sw.js')
                 .then((registration) => {
                     console.log('Service Worker registered')
-                    // Proactively request permission on mount if not determined
-                    if (Notification.permission === 'default') {
-                        requestNotificationPermission()
-                    }
                 })
         }
 
         // Client-side Reminder Checker
         const checkReminders = async () => {
             const now = new Date()
-            // Adjust to local date string yyyy-mm-dd
-            const offset = now.getTimezoneOffset()
-            const localNow = new Date(now.getTime() - (offset * 60 * 1000))
-            const today = localNow.toISOString().split('T')[0]
-            const currentTimeString = now.toTimeString().substring(0, 5) // "HH:MM"
+            // Use local HH:MM format
+            const hour = now.getHours().toString().padStart(2, '0')
+            const minute = now.getMinutes().toString().padStart(2, '0')
+            const currentTimeString = `${hour}:${minute}`
 
             // Avoid double checks for the same minute
             if (lastCheckedMinute.current === currentTimeString) return
@@ -37,6 +32,11 @@ export default function PWAHandler() {
 
             const { data: { user } } = await supabase.auth.getUser()
             if (!user) return
+
+            // Use local date string yyyy-mm-dd
+            const offset = now.getTimezoneOffset()
+            const localNow = new Date(now.getTime() - (offset * 60 * 1000))
+            const today = localNow.toISOString().split('T')[0]
 
             const { data: tasks } = await supabase
                 .from('tasks')

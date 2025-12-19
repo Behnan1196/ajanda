@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { requestNotificationPermission } from '@/lib/notifications'
@@ -31,6 +31,20 @@ export default function QuickTodoModal({ onClose, initialDate, onTaskAdded, edit
     const [imageFile, setImageFile] = useState<File | null>(null)
     const [imagePreview, setImagePreview] = useState<string | null>(editingTask?.metadata?.attachment_url as string || null)
     const [uploading, setUploading] = useState(false)
+    const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | 'unsupported'>('default')
+
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            if (!('Notification' in window)) setNotificationPermission('unsupported')
+            else setNotificationPermission(Notification.permission)
+        }
+    }, [])
+
+    const handleRequestPermission = async () => {
+        const granted = await requestNotificationPermission()
+        if (granted) setNotificationPermission('granted')
+        else setNotificationPermission(Notification.permission)
+    }
 
     // Helper for local date string
     const toLocalISOString = (date: Date) => {
@@ -126,10 +140,6 @@ export default function QuickTodoModal({ onClose, initialDate, onTaskAdded, edit
                 return
             }
             setUploading(false)
-        }
-
-        if (dueTime) {
-            await requestNotificationPermission()
         }
 
         const taskData = {
@@ -228,7 +238,19 @@ export default function QuickTodoModal({ onClose, initialDate, onTaskAdded, edit
                     <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
                         <span>⚡</span> {isEditMode ? 'Notu Düzenle' : 'Hızlı Not'}
                     </h2>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 bg-gray-50 hover:bg-gray-100 p-1.5 rounded-full transition">✕</button>
+                    <div className="flex items-center gap-2">
+                        {notificationPermission === 'default' && (
+                            <button
+                                type="button"
+                                onClick={handleRequestPermission}
+                                title="Bildirimleri Aç"
+                                className="text-xs font-semibold text-amber-600 bg-amber-50 px-2 py-1 rounded-lg hover:bg-amber-100 transition"
+                            >
+                                🔔 Bildirimleri Aç
+                            </button>
+                        )}
+                        <button onClick={onClose} className="text-gray-400 hover:text-gray-600 bg-gray-50 hover:bg-gray-100 p-1.5 rounded-full transition">✕</button>
+                    </div>
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
