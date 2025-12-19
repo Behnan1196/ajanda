@@ -354,19 +354,19 @@ export default function QuickTodoModal({ onClose, initialDate, onTaskAdded, edit
 
                         {/* Thumbnails Gallery */}
                         {imagePreviews.length > 0 && (
-                            <div className="flex flex-wrap gap-2 mt-2">
+                            <div className="flex flex-wrap gap-2.5 mt-2.5">
                                 {imagePreviews.map((url, index) => (
-                                    <div key={index} className="relative w-12 h-12 rounded-lg overflow-hidden border-2 border-amber-200 bg-white shadow-sm flex-shrink-0 group">
+                                    <div key={index} className="relative w-20 h-20 rounded-xl overflow-hidden border-2 border-amber-200 bg-white shadow-md flex-shrink-0 group animate-scaleIn">
                                         <img
                                             src={url}
-                                            className="w-full h-full object-cover cursor-pointer"
+                                            className="w-full h-full object-cover cursor-pointer hover:scale-110 transition duration-300"
                                             alt={`Preview ${index}`}
                                             onClick={() => { setActiveImageIndex(index); setShowFullImage(true); }}
                                         />
                                         <button
                                             type="button"
                                             onClick={() => handleRemoveImage(index)}
-                                            className="absolute top-0 right-0 bg-red-500 text-white w-4 h-4 flex items-center justify-center rounded-bl-lg text-[8px] font-bold shadow-sm opacity-100 transition"
+                                            className="absolute top-1 right-1 bg-red-500/90 text-white w-6 h-6 flex items-center justify-center rounded-lg text-[10px] font-bold shadow-sm opacity-100 transition active:scale-90"
                                         >✕</button>
                                     </div>
                                 ))}
