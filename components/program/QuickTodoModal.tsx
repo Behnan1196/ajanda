@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+import { requestNotificationPermission } from '@/lib/notifications'
 
 interface Task {
     id: string
@@ -125,6 +126,10 @@ export default function QuickTodoModal({ onClose, initialDate, onTaskAdded, edit
                 return
             }
             setUploading(false)
+        }
+
+        if (dueTime) {
+            await requestNotificationPermission()
         }
 
         const taskData = {

@@ -1,0 +1,20 @@
+import type { MetadataRoute } from 'next'
+
+export default function manifest(): MetadataRoute.Manifest {
+    return {
+        name: 'Ajanda',
+        short_name: 'Ajanda',
+        description: 'Kişisel Gelişim ve Eğitim Asistanı',
+        start_url: '/',
+        display: 'standalone',
+        background_color: '#ffffff',
+        theme_color: '#6366f1',
+        icons: [
+            {
+                src: '/icons/icon-512x512.png',
+                sizes: '512x512',
+                type: 'image/png',
+            },
+        ],
+    }
+}
