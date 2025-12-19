@@ -22,6 +22,9 @@ export const metadata: Metadata = {
     statusBarStyle: "default",
     title: "Ajanda",
   },
+  icons: {
+    apple: "/icons/icon-192x192.png",
+  },
 };
 
 export const viewport: Viewport = {
