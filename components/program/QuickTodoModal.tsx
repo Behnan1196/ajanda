@@ -32,6 +32,7 @@ export default function QuickTodoModal({ onClose, initialDate, onTaskAdded, edit
     const [imagePreview, setImagePreview] = useState<string | null>(editingTask?.metadata?.attachment_url as string || null)
     const [uploading, setUploading] = useState(false)
     const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | 'unsupported'>('default')
+    const [showFullImage, setShowFullImage] = useState(false)
 
     useEffect(() => {
         if (typeof window !== 'undefined') {
@@ -39,6 +40,14 @@ export default function QuickTodoModal({ onClose, initialDate, onTaskAdded, edit
             else setNotificationPermission(Notification.permission)
         }
     }, [])
+
+    useEffect(() => {
+        if (showFullImage) {
+            document.body.style.overflow = 'hidden'
+        } else {
+            document.body.style.overflow = 'unset'
+        }
+    }, [showFullImage])
 
     const handleRequestPermission = async () => {
         const granted = await requestNotificationPermission()
@@ -299,12 +308,17 @@ export default function QuickTodoModal({ onClose, initialDate, onTaskAdded, edit
                                     <span>{imageFile ? 'Resim Seçildi' : 'Resim Ekle'}</span>
                                 </label>
                                 {imagePreview && (
-                                    <div className="relative group w-8 h-8 rounded overflow-hidden border border-gray-200">
-                                        <img src={imagePreview} className="w-full h-full object-cover" alt="Preview" />
+                                    <div className="relative w-10 h-10 rounded-lg overflow-hidden border-2 border-amber-200 bg-white shadow-sm">
+                                        <img
+                                            src={imagePreview}
+                                            className="w-full h-full object-cover cursor-pointer"
+                                            alt="Preview"
+                                            onClick={() => setShowFullImage(true)}
+                                        />
                                         <button
                                             type="button"
                                             onClick={() => { setImageFile(null); setImagePreview(null); }}
-                                            className="absolute inset-0 bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 text-[10px]"
+                                            className="absolute top-0 right-0 bg-red-500 text-white w-4 h-4 flex items-center justify-center rounded-bl-lg text-[8px] font-bold shadow-sm active:scale-95 transition"
                                         >✕</button>
                                     </div>
                                 )}
@@ -359,6 +373,24 @@ export default function QuickTodoModal({ onClose, initialDate, onTaskAdded, edit
                     </span>
                 </div>
             </div>
+
+            {/* Full Screen Image Viewer */}
+            {showFullImage && imagePreview && (
+                <div
+                    className="fixed inset-0 bg-black/90 z-[60] flex items-center justify-center animate-fadeIn p-4"
+                    onClick={() => setShowFullImage(false)}
+                >
+                    <button
+                        className="absolute top-6 right-6 text-white text-2xl bg-white/10 hover:bg-white/20 w-10 h-10 rounded-full flex items-center justify-center transition"
+                        onClick={() => setShowFullImage(false)}
+                    >✕</button>
+                    <img
+                        src={imagePreview}
+                        className="max-w-full max-h-full object-contain rounded-lg shadow-2xl animate-scaleIn"
+                        alt="Full Preview"
+                    />
+                </div>
+            )}
         </div>
     )
 }
