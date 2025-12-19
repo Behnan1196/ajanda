@@ -16,11 +16,14 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Ajanda - Kişisel Gelişim Asistanı",
   description: "Kişisel Gelişim ve Eğitim Asistanı",
-  manifest: "/manifest.webmanifest",
+  manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
     title: "Ajanda",
+  },
+  other: {
+    "apple-mobile-web-app-capable": "yes",
   },
   formatDetection: {
     telephone: false,
