@@ -16,13 +16,19 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Ajanda - Kişisel Gelişim Asistanı",
   description: "Kişisel Gelişim ve Eğitim Asistanı",
+  manifest: "/manifest.webmanifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
     title: "Ajanda",
   },
+  formatDetection: {
+    telephone: false,
+  },
   icons: {
-    apple: "/icons/apple-touch-icon.png",
+    apple: [
+      { url: "/icons/apple-touch-icon-180x180.png", sizes: "180x180", type: "image/png" },
+    ],
   },
 };
 
@@ -32,6 +38,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
+  viewportFit: "cover",
   interactiveWidget: "resizes-visual",
 };
 
