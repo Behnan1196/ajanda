@@ -28,11 +28,15 @@ export default function QuickTodoModal({ onClose, initialDate, onTaskAdded, edit
     const [title, setTitle] = useState(editingTask?.title || '')
     const [description, setDescription] = useState(editingTask?.description || '')
     const [dueTime, setDueTime] = useState(editingTask?.due_time || '')
-    const [imageFile, setImageFile] = useState<File | null>(null)
-    const [imagePreview, setImagePreview] = useState<string | null>(editingTask?.metadata?.attachment_url as string || null)
+    const [imageFiles, setImageFiles] = useState<File[]>([])
+    const [imagePreviews, setImagePreviews] = useState<string[]>(
+        (editingTask?.metadata?.attachments as string[]) ||
+        (editingTask?.metadata?.attachment_url ? [editingTask.metadata.attachment_url as string] : [])
+    )
     const [uploading, setUploading] = useState(false)
     const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | 'unsupported'>('default')
     const [showFullImage, setShowFullImage] = useState(false)
+    const [activeImageIndex, setActiveImageIndex] = useState(0)
 
     useEffect(() => {
         if (typeof window !== 'undefined') {
@@ -105,10 +109,36 @@ export default function QuickTodoModal({ onClose, initialDate, onTaskAdded, edit
     }
 
     const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
-            const file = e.target.files[0]
-            setImageFile(file)
-            setImagePreview(URL.createObjectURL(file))
+        if (e.target.files && e.target.files.length > 0) {
+            const files = Array.from(e.target.files)
+            setImageFiles(prev => [...prev, ...files])
+
+            const newPreviews = files.map(file => URL.createObjectURL(file))
+            setImagePreviews(prev => [...prev, ...newPreviews])
+        }
+    }
+
+    const handleRemoveImage = (index: number) => {
+        const previewToRemove = imagePreviews[index]
+
+        // If it's a blob/local URL, revoke it
+        if (previewToRemove.startsWith('blob:')) {
+            URL.revokeObjectURL(previewToRemove)
+        }
+
+        setImagePreviews(prev => prev.filter((_, i) => i !== index))
+
+        // We also need to remove it from imageFiles if it's a newly selected one
+        // This is a bit tricky because imagePreviews contains both old (URLs) and new (blobs)
+        // Let's find the corresponding index in imageFiles
+        // New files are appended at the end. 
+        // Number of existing (old) images:
+        const existingCount = (editingTask?.metadata?.attachments as string[] ||
+            (editingTask?.metadata?.attachment_url ? [editingTask.metadata.attachment_url] : [])).length
+
+        if (index >= existingCount) {
+            const fileIndex = index - existingCount
+            setImageFiles(prev => prev.filter((_, i) => i !== fileIndex))
         }
     }
 
@@ -119,31 +149,33 @@ export default function QuickTodoModal({ onClose, initialDate, onTaskAdded, edit
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) return
 
-        let attachmentUrl = imagePreview
+        let finalAttachments = imagePreviews.filter(p => !p.startsWith('blob:')) // Keep existing remote URLs
 
-        // Handle Image Upload if new file selected (imageFile is only set on new selection)
-        if (imageFile) {
+        // Handle New Image Uploads
+        if (imageFiles.length > 0) {
             setUploading(true)
             try {
-                const compressedBlob = await compressImage(imageFile)
-                const fileName = `${user.id}/${Date.now()}.jpg`
+                for (const file of imageFiles) {
+                    const compressedBlob = await compressImage(file)
+                    const fileName = `${user.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.jpg`
 
-                const { error: uploadError } = await supabase.storage
-                    .from('task-attachments')
-                    .upload(fileName, compressedBlob, {
-                        contentType: 'image/jpeg',
-                        upsert: true
-                    })
+                    const { error: uploadError } = await supabase.storage
+                        .from('task-attachments')
+                        .upload(fileName, compressedBlob, {
+                            contentType: 'image/jpeg',
+                            upsert: true
+                        })
 
-                if (uploadError) throw uploadError
+                    if (uploadError) throw uploadError
 
-                const { data: { publicUrl } } = supabase.storage
-                    .from('task-attachments')
-                    .getPublicUrl(fileName)
+                    const { data: { publicUrl } } = supabase.storage
+                        .from('task-attachments')
+                        .getPublicUrl(fileName)
 
-                attachmentUrl = publicUrl
+                    finalAttachments.push(publicUrl)
+                }
             } catch (error: any) {
-                alert('Resim yüklenirken hata oluştu: ' + error.message)
+                alert('Resimler yüklenirken hata oluştu: ' + error.message)
                 setLoading(false)
                 setUploading(false)
                 return
@@ -158,7 +190,8 @@ export default function QuickTodoModal({ onClose, initialDate, onTaskAdded, edit
             due_time: dueTime || null,
             metadata: {
                 ...(editingTask?.metadata as Record<string, unknown> || {}),
-                attachment_url: attachmentUrl
+                attachments: finalAttachments,
+                attachment_url: finalAttachments[0] || null // Legacy support
             }
         }
 
@@ -301,27 +334,13 @@ export default function QuickTodoModal({ onClose, initialDate, onTaskAdded, edit
                                     <input
                                         type="file"
                                         accept="image/*"
+                                        multiple
                                         className="hidden"
                                         onChange={handleImageSelect}
                                     />
                                     <span className="text-lg leading-none">📷</span>
-                                    <span>{imageFile ? 'Resim Seçildi' : 'Resim Ekle'}</span>
+                                    <span>{imageFiles.length > 0 ? `${imageFiles.length} Yeni` : 'Resim Ekle'}</span>
                                 </label>
-                                {imagePreview && (
-                                    <div className="relative w-10 h-10 rounded-lg overflow-hidden border-2 border-amber-200 bg-white shadow-sm">
-                                        <img
-                                            src={imagePreview}
-                                            className="w-full h-full object-cover cursor-pointer"
-                                            alt="Preview"
-                                            onClick={() => setShowFullImage(true)}
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={() => { setImageFile(null); setImagePreview(null); }}
-                                            className="absolute top-0 right-0 bg-red-500 text-white w-4 h-4 flex items-center justify-center rounded-bl-lg text-[8px] font-bold shadow-sm active:scale-95 transition"
-                                        >✕</button>
-                                    </div>
-                                )}
                             </div>
 
                             <button
@@ -332,6 +351,27 @@ export default function QuickTodoModal({ onClose, initialDate, onTaskAdded, edit
                                 • Liste Ekle
                             </button>
                         </div>
+
+                        {/* Thumbnails Gallery */}
+                        {imagePreviews.length > 0 && (
+                            <div className="flex flex-wrap gap-2 mt-2">
+                                {imagePreviews.map((url, index) => (
+                                    <div key={index} className="relative w-12 h-12 rounded-lg overflow-hidden border-2 border-amber-200 bg-white shadow-sm flex-shrink-0 group">
+                                        <img
+                                            src={url}
+                                            className="w-full h-full object-cover cursor-pointer"
+                                            alt={`Preview ${index}`}
+                                            onClick={() => { setActiveImageIndex(index); setShowFullImage(true); }}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => handleRemoveImage(index)}
+                                            className="absolute top-0 right-0 bg-red-500 text-white w-4 h-4 flex items-center justify-center rounded-bl-lg text-[8px] font-bold shadow-sm opacity-100 transition"
+                                        >✕</button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
@@ -375,20 +415,47 @@ export default function QuickTodoModal({ onClose, initialDate, onTaskAdded, edit
             </div>
 
             {/* Full Screen Image Viewer */}
-            {showFullImage && imagePreview && (
+            {showFullImage && imagePreviews[activeImageIndex] && (
                 <div
-                    className="fixed inset-0 bg-black/90 z-[60] flex items-center justify-center animate-fadeIn p-4"
+                    className="fixed inset-0 bg-black/95 z-[60] flex items-center justify-center animate-fadeIn p-4"
                     onClick={() => setShowFullImage(false)}
                 >
                     <button
-                        className="absolute top-6 right-6 text-white text-2xl bg-white/10 hover:bg-white/20 w-10 h-10 rounded-full flex items-center justify-center transition"
-                        onClick={() => setShowFullImage(false)}
+                        className="absolute top-6 right-6 text-white text-3xl bg-white/10 w-12 h-12 rounded-full flex items-center justify-center hover:bg-white/20 transition z-10"
+                        onClick={(e) => { e.stopPropagation(); setShowFullImage(false); }}
                     >✕</button>
+
+                    {imagePreviews.length > 1 && (
+                        <>
+                            <button
+                                className="absolute left-4 top-1/2 -translate-y-1/2 text-white/50 hover:text-white text-4xl p-4 transition z-10"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActiveImageIndex(prev => (prev > 0 ? prev - 1 : imagePreviews.length - 1));
+                                }}
+                            >‹</button>
+                            <button
+                                className="absolute right-4 top-1/2 -translate-y-1/2 text-white/50 hover:text-white text-4xl p-4 transition z-10"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActiveImageIndex(prev => (prev < imagePreviews.length - 1 ? prev + 1 : 0));
+                                }}
+                            >›</button>
+                        </>
+                    )}
+
                     <img
-                        src={imagePreview}
-                        className="max-w-full max-h-full object-contain rounded-lg shadow-2xl animate-scaleIn"
-                        alt="Full Preview"
+                        src={imagePreviews[activeImageIndex]}
+                        className="max-w-full max-h-full object-contain rounded shadow-2xl animate-scaleIn select-none"
+                        alt={`Full Preview ${activeImageIndex}`}
+                        onClick={(e) => e.stopPropagation()}
                     />
+
+                    {imagePreviews.length > 1 && (
+                        <div className="absolute bottom-10 left-1/2 -translate-x-1/2 text-white/60 text-sm font-medium bg-black/40 px-3 py-1.5 rounded-full">
+                            {activeImageIndex + 1} / {imagePreviews.length}
+                        </div>
+                    )}
                 </div>
             )}
         </div>
