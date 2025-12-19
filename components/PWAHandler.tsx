@@ -6,7 +6,7 @@ import { sendLocalNotification } from '@/lib/notifications'
 
 export default function PWAHandler() {
     const supabase = createClient()
-    const lastCheckedMinute = useRef<string | null>(null)
+    const notifiedTasks = useRef<Set<string>>(new Set())
 
     useEffect(() => {
         // Register Service Worker
@@ -20,25 +20,25 @@ export default function PWAHandler() {
 
         // Client-side Reminder Checker
         const checkReminders = async () => {
+            const { data: { user } } = await supabase.auth.getUser()
+            if (!user) return
+
             const now = new Date()
-            // Use local HH:MM format
+
+            // local HH:MM
             const hour = now.getHours().toString().padStart(2, '0')
             const minute = now.getMinutes().toString().padStart(2, '0')
             const currentTimeString = `${hour}:${minute}`
 
-            // Avoid double checks for the same minute
-            if (lastCheckedMinute.current === currentTimeString) return
-            lastCheckedMinute.current = currentTimeString
-
-            const { data: { user } } = await supabase.auth.getUser()
-            if (!user) return
-
-            // Use local date string yyyy-mm-dd
+            // local yyyy-mm-dd
             const offset = now.getTimezoneOffset()
             const localNow = new Date(now.getTime() - (offset * 60 * 1000))
             const today = localNow.toISOString().split('T')[0]
 
-            const { data: tasks } = await supabase
+            // Clear notifiedTasks set if the day has changed (simple reset)
+            // Or just check tasks for today.
+
+            const { data: tasks, error } = await supabase
                 .from('tasks')
                 .select('id, title, due_time')
                 .eq('user_id', user.id)
@@ -46,17 +46,27 @@ export default function PWAHandler() {
                 .eq('is_completed', false)
                 .eq('due_time', currentTimeString)
 
+            if (error) {
+                console.error('Error fetching tasks for notifications:', error)
+                return
+            }
+
             if (tasks && tasks.length > 0) {
                 tasks.forEach(task => {
-                    console.log('Notifying task:', task.title)
-                    sendLocalNotification('Görev Zamanı!', task.title)
+                    if (!notifiedTasks.current.has(task.id)) {
+                        console.log('Triggering notification for task:', task.title)
+                        sendLocalNotification('Görev Zamanı!', task.title)
+                        notifiedTasks.current.add(task.id)
+                    }
                 })
             }
         }
 
-        // Check every 30 seconds to ensure we don't miss the minute start
+        // Check every 20 seconds for higher precision
+        const interval = setInterval(checkReminders, 20000)
+        // Initial check
         checkReminders()
-        const interval = setInterval(checkReminders, 30000)
+
         return () => clearInterval(interval)
     }, [supabase])
 

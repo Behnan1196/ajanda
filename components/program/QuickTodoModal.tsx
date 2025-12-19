@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
-import { requestNotificationPermission } from '@/lib/notifications'
+import { requestNotificationPermission, sendTestNotification } from '@/lib/notifications'
 
 interface Task {
     id: string
@@ -247,6 +247,16 @@ export default function QuickTodoModal({ onClose, initialDate, onTaskAdded, edit
                                 className="text-xs font-semibold text-amber-600 bg-amber-50 px-2 py-1 rounded-lg hover:bg-amber-100 transition"
                             >
                                 🔔 Bildirimleri Aç
+                            </button>
+                        )}
+                        {notificationPermission === 'granted' && (
+                            <button
+                                type="button"
+                                onClick={() => sendTestNotification()}
+                                title="Bildirimi Test Et"
+                                className="text-xs font-semibold text-gray-500 bg-gray-50 px-2 py-1 rounded-lg hover:bg-gray-100 transition"
+                            >
+                                🧪 Test Et
                             </button>
                         )}
                         <button onClick={onClose} className="text-gray-400 hover:text-gray-600 bg-gray-50 hover:bg-gray-100 p-1.5 rounded-full transition">✕</button>

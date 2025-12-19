@@ -48,3 +48,7 @@ export function sendLocalNotification(title: string, body: string) {
         }
     }
 }
+
+export function sendTestNotification() {
+    sendLocalNotification('Test Bildirimi 🔔', 'Bildirim sisteminiz başarıyla çalışıyor!')
+}
