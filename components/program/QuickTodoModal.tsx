@@ -354,19 +354,19 @@ export default function QuickTodoModal({ onClose, initialDate, onTaskAdded, edit
 
                         {/* Thumbnails Gallery */}
                         {imagePreviews.length > 0 && (
-                            <div className="flex flex-wrap gap-2.5 mt-2.5">
+                            <div className="flex flex-wrap gap-3 mt-3">
                                 {imagePreviews.map((url, index) => (
-                                    <div key={index} className="relative w-20 h-20 rounded-xl overflow-hidden border-2 border-amber-200 bg-white shadow-md flex-shrink-0 group animate-scaleIn">
+                                    <div key={index} className="relative w-32 h-32 rounded-2xl overflow-hidden border-2 border-amber-200 bg-white shadow-xl flex-shrink-0 group animate-scaleIn">
                                         <img
                                             src={url}
-                                            className="w-full h-full object-cover cursor-pointer hover:scale-110 transition duration-300"
+                                            className="w-full h-full object-cover cursor-pointer hover:scale-105 transition duration-300"
                                             alt={`Preview ${index}`}
                                             onClick={() => { setActiveImageIndex(index); setShowFullImage(true); }}
                                         />
                                         <button
                                             type="button"
                                             onClick={() => handleRemoveImage(index)}
-                                            className="absolute top-1 right-1 bg-red-500/90 text-white w-6 h-6 flex items-center justify-center rounded-lg text-[10px] font-bold shadow-sm opacity-100 transition active:scale-90"
+                                            className="absolute top-1.5 right-1.5 bg-red-500/90 backdrop-blur-sm text-white w-7 h-7 flex items-center justify-center rounded-xl text-[12px] font-bold shadow-lg opacity-100 active:scale-90 transition"
                                         >✕</button>
                                     </div>
                                 ))}

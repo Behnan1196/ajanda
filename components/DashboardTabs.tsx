@@ -64,7 +64,7 @@ export default function DashboardTabs({ user }: DashboardTabsProps) {
     return (
         <div className="flex flex-col h-screen">
             {/* Header */}
-            <header className="bg-white border-b border-gray-200 px-4 py-3 relative z-20">
+            <header className="bg-white border-b border-gray-200 px-4 pt-12 pb-3 relative z-30">
                 <div className="flex items-center justify-between">
                     <h1 className="text-xl font-bold text-gray-900">Yaşam Planlayıcı</h1>
                     <div className="relative" ref={dropdownRef}>
@@ -122,8 +122,8 @@ export default function DashboardTabs({ user }: DashboardTabsProps) {
             <div className="flex-1 overflow-auto pb-20">
                 {activeTab === 'program' && (
                     <div>
-                        {/* Program Sub-tabs */}
-                        <div className="flex gap-1 p-4 pb-0 overflow-x-auto">
+                        {/* Program Sub-tabs (Sticky) */}
+                        <div className="sticky top-0 bg-gray-50/80 backdrop-blur-md z-20 flex gap-1 p-4 pb-0 overflow-x-auto border-b border-gray-100">
                             <button
                                 onClick={() => setActiveProgramTab('bugun')}
                                 className={`py-2 px-3 rounded-t-lg text-sm font-medium transition whitespace-nowrap ${activeProgramTab === 'bugun'
