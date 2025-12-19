@@ -6,6 +6,7 @@ import TaskCard from './TaskCard'
 import AddTaskButton from './AddTaskButton'
 import AddQuickTodoButton from './AddQuickTodoButton'
 import TaskFormModal from './TaskFormModal'
+import QuickTodoModal from './QuickTodoModal'
 
 interface Task {
     id: string
@@ -27,6 +28,7 @@ interface Task {
         slug: string
         icon: string | null
     }
+    is_private?: boolean
 }
 
 interface TodayViewProps {
@@ -38,6 +40,7 @@ export default function TodayView({ userId, initialDate }: TodayViewProps) {
     const [tasks, setTasks] = useState<Task[]>([])
     const [loading, setLoading] = useState(true)
     const [showTaskModal, setShowTaskModal] = useState(false)
+    const [showQuickTodoModal, setShowQuickTodoModal] = useState(false)
     const [editingTask, setEditingTask] = useState<Task | null>(null)
     const [selectedDate, setSelectedDate] = useState(initialDate || new Date())
     const supabase = createClient()
@@ -77,7 +80,35 @@ export default function TodayView({ userId, initialDate }: TodayViewProps) {
         if (error) {
             console.error('Error loading tasks:', error)
         } else {
-            setTasks(data as Task[])
+            // Apply sorting logic:
+            // 1. Quick Todos (is_private) that are completed (is_completed) go to BOTTOM (Lowest priority)
+            // 2. Everything else keeps its order (based on DB sort due_time)
+
+            const sortedData = (data as Task[]).sort((a, b) => {
+                const isQuickA = a.is_private || false
+                const isQuickB = b.is_private || false
+
+                // If both are quick, sort completed to bottom
+                if (isQuickA && a.is_completed && !(isQuickB && b.is_completed)) return 1
+                if (!(isQuickA && a.is_completed) && (isQuickB && b.is_completed)) return -1
+
+                // If one is completed quick vs pending quick, handled above.
+                // If mixed types, we specifically only want COMPLETED QUICK items to drop.
+                // Pending Quick items can stay mixed.
+
+                // Let's refine:
+                // If A is Completed Quick Todo -> Weight 100
+                // If B is Completed Quick Todo -> Weight 100
+                // Else -> Weight 0
+
+                const weightA = (a.is_private && a.is_completed) ? 100 : 0
+                const weightB = (b.is_private && b.is_completed) ? 100 : 0
+
+                return weightA - weightB
+                // If weights equal (both 0 or both 100), preserve original order (stable sort implied or just 0)
+            })
+
+            setTasks(sortedData)
         }
         setLoading(false)
     }
@@ -127,17 +158,24 @@ export default function TodayView({ userId, initialDate }: TodayViewProps) {
 
     const handleTaskEdit = (task: Task) => {
         setEditingTask(task)
-        setShowTaskModal(true)
+        if (task.is_private) {
+            setShowQuickTodoModal(true)
+        } else {
+            setShowTaskModal(true)
+        }
+
     }
 
     const handleTaskSaved = () => {
         setShowTaskModal(false)
+        setShowQuickTodoModal(false)
         setEditingTask(null)
         loadTasks(selectedDate)
     }
 
     const handleCloseModal = () => {
         setShowTaskModal(false)
+        setShowQuickTodoModal(false)
         setEditingTask(null)
     }
 
@@ -268,6 +306,15 @@ export default function TodayView({ userId, initialDate }: TodayViewProps) {
                     defaultDate={selectedDate}
                     onClose={handleCloseModal}
                     onTaskSaved={handleTaskSaved}
+                />
+            )}
+
+            {showQuickTodoModal && (
+                <QuickTodoModal
+                    onClose={handleCloseModal}
+                    initialDate={selectedDate}
+                    onTaskAdded={handleTaskSaved}
+                    editingTask={editingTask}
                 />
             )}
         </div>
