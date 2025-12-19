@@ -48,7 +48,7 @@ export default function CoachLayout({ children }: CoachLayoutProps) {
 
     const navItems = [
         { name: 'Öğrencilerim', href: '/coach', icon: '👥' },
-        { name: 'Konu Kütüphanesi', href: '/coach/subjects', icon: '📚' },
+        { name: 'Program Kütüphanesi', href: '/coach/subjects', icon: '📚' },
         // { name: 'Mesajlar', href: '/coach/messages', icon: '💬' },
     ]
 

@@ -6,6 +6,7 @@ import { revalidatePath } from 'next/cache'
 export interface CreateSubjectInput {
     name: string
     description?: string
+    category?: string
     color?: string
     icon?: string
     topics?: string[]
@@ -83,6 +84,7 @@ export async function createSubject(input: CreateSubjectInput) {
         .from('subjects')
         .insert({
             ...subjectData,
+            category: subjectData.category,
             created_by: user.id,
             is_system: false
         })

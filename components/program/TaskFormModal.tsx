@@ -63,13 +63,20 @@ export default function TaskFormModal({ userId, editingTask, defaultDate, onClos
     const [isOwnTask, setIsOwnTask] = useState(false)
 
     // Form State
+    // Helper for local date string
+    const toLocalISOString = (date: Date) => {
+        const offset = date.getTimezoneOffset()
+        const localDate = new Date(date.getTime() - (offset * 60 * 1000))
+        return localDate.toISOString().split('T')[0]
+    }
+
     const [selectedType, setSelectedType] = useState<string>('')
     const [subjectId, setSubjectId] = useState<string>('')
     const [topicId, setTopicId] = useState<string>('')
     const [title, setTitle] = useState('')
     const [description, setDescription] = useState('')
     const [dueDate, setDueDate] = useState(
-        defaultDate ? defaultDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
+        defaultDate ? toLocalISOString(defaultDate) : toLocalISOString(new Date())
     )
     const [dueTime, setDueTime] = useState('')
     const [reminderTime, setReminderTime] = useState('')
@@ -78,7 +85,7 @@ export default function TaskFormModal({ userId, editingTask, defaultDate, onClos
     const [loading, setLoading] = useState(false)
 
     // UI State
-    const [showAdvanced, setShowAdvanced] = useState(false)
+    // const [showAdvanced, setShowAdvanced] = useState(false) // Removed advanced toggle
 
     const supabase = createClient()
     const isEditMode = !!editingTask
@@ -94,11 +101,11 @@ export default function TaskFormModal({ userId, editingTask, defaultDate, onClos
             setSelectedType(editingTask.task_type_id)
             setSubjectId(editingTask.subject_id || '')
             setTopicId(editingTask.topic_id || '')
-            setDueDate(editingTask.due_date || new Date().toISOString().split('T')[0])
+            setDueDate(editingTask.due_date || toLocalISOString(new Date()))
             setDueTime(editingTask.due_time || '')
             setIsPrivate(editingTask.is_private || false)
             setMetadata(editingTask.metadata || {})
-            setShowAdvanced(!!editingTask.subject_id) // Show advanced if subject is set
+            // setShowAdvanced(!!editingTask.subject_id) // No longer needed
         }
     }, [editingTask])
 
@@ -159,11 +166,26 @@ export default function TaskFormModal({ userId, editingTask, defaultDate, onClos
         e.preventDefault()
         setLoading(true)
 
+        // Auto-generate title if empty
+        let finalTitle = title
+        if (!finalTitle) {
+            if (subjectId) {
+                const subject = subjects.find(s => s.id === subjectId)
+                finalTitle = subject ? `${subject.name} Çalışması` : 'Ders Çalışması'
+                if (topicId) {
+                    const topic = topics.find(t => t.id === topicId)
+                    if (topic) finalTitle = `${topic.name}` // Just topic name is cleaner
+                }
+            } else {
+                finalTitle = 'Yeni Görev'
+            }
+        }
+
         const payload = {
             task_type_id: selectedType,
             subject_id: subjectId || null,
             topic_id: topicId || null,
-            title,
+            title: finalTitle,
             description,
             metadata,
             due_date: dueDate,
@@ -225,7 +247,7 @@ export default function TaskFormModal({ userId, editingTask, defaultDate, onClos
 
     return (
         <div className="fixed inset-0 bg-black/50 flex items-end justify-center z-50 animate-fadeIn">
-            <div className={`bg-white w-full max-w-2xl rounded-t-3xl p-6 max-h-[90vh] overflow-y-auto animate-slideUp transition-all ${showAdvanced ? 'h-auto' : 'h-auto'}`}>
+            <div className="bg-white w-full max-w-2xl rounded-t-3xl p-6 max-h-[90vh] overflow-y-auto animate-slideUp transition-all h-auto">
                 <div className="flex items-center justify-between mb-6">
                     <h2 className="text-xl font-bold text-gray-900">
                         {isEditMode ? 'Görevi Düzenle' : (isStudentView ? 'Yeni Görev' : 'Görev Ata')}
@@ -242,19 +264,53 @@ export default function TaskFormModal({ userId, editingTask, defaultDate, onClos
 
                 <form onSubmit={handleSubmit} className="space-y-4">
 
-                    {/* Basic Fields (Always Visible) */}
-                    <div>
-                        <input
-                            type="text"
-                            value={title}
-                            onChange={(e) => setTitle(e.target.value)}
-                            className="w-full px-4 py-3 text-lg font-medium border-0 border-b-2 border-gray-200 focus:ring-0 focus:border-indigo-600 placeholder-gray-400 transition"
-                            placeholder="Ne yapacaksın?"
-                            required
-                            autoFocus
-                        />
+                    {/* 1. Subject & Topic Selection (Moved to Top, Always Visible) */}
+                    <div className="space-y-4">
+                        {/* Subject Selection */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Ders / Konu
+                            </label>
+                            <select
+                                value={subjectId}
+                                onChange={(e) => {
+                                    setSubjectId(e.target.value)
+                                    setTopicId('')
+                                }}
+                                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                            >
+                                <option value="">Genel / Derssiz</option>
+                                {subjects.map((subject) => (
+                                    <option key={subject.id} value={subject.id}>
+                                        {subject.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        {/* Topic Selection */}
+                        {subjectId && (
+                            <div className="animate-fadeIn">
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Alt Konu
+                                </label>
+                                <select
+                                    value={topicId}
+                                    onChange={(e) => setTopicId(e.target.value)}
+                                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                >
+                                    <option value="">Seçiniz...</option>
+                                    {filteredTopics.map((topic) => (
+                                        <option key={topic.id} value={topic.id}>
+                                            {topic.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
                     </div>
 
+                    {/* 2. Date & Time */}
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="block text-xs font-medium text-gray-500 mb-1">TARİH</label>
@@ -276,138 +332,63 @@ export default function TaskFormModal({ userId, editingTask, defaultDate, onClos
                         </div>
                     </div>
 
-                    {/* Student Privacy Toggle */}
-                    {isStudentView && (
-                        <div className="flex items-center gap-2 py-2">
-                            <input
-                                type="checkbox"
-                                id="private-check"
-                                checked={isPrivate}
-                                onChange={e => setIsPrivate(e.target.checked)}
-                                className="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
-                            />
-                            <label htmlFor="private-check" className="text-sm text-gray-700 select-none">
-                                Özel Görev <span className="text-gray-400 text-xs">(Koç görmesin)</span>
+                    {/* 3. Task Type & Description */}
+                    <div className="space-y-4 pt-4 border-t border-gray-100">
+                        {/* Task Type Switcher */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Görev Tipi
                             </label>
-                        </div>
-                    )}
-
-                    {/* Advanced Toggle (Student Only) */}
-                    {isStudentView && (
-                        <button
-                            type="button"
-                            onClick={() => setShowAdvanced(!showAdvanced)}
-                            className="text-sm text-indigo-600 font-medium flex items-center gap-1"
-                        >
-                            {showAdvanced ? 'Daha Az Detay' : '+ Ders/Konu Ekle'}
-                        </button>
-                    )}
-
-                    {/* Advanced Fields (Subject, Topic, Type) 
-                        - Always visible for Coach
-                        - Visible only if toggled for Student
-                    */}
-                    {(showAdvanced || !isStudentView) && (
-                        <div className="space-y-4 pt-4 border-t border-gray-100 animate-fadeIn">
-                            {/* Subject Selection */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Ders / Konu
-                                </label>
-                                <select
-                                    value={subjectId}
-                                    onChange={(e) => {
-                                        setSubjectId(e.target.value)
-                                        setTopicId('')
-                                    }}
-                                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                                >
-                                    <option value="">Genel / Derssiz</option>
-                                    {subjects.map((subject) => (
-                                        <option key={subject.id} value={subject.id}>
-                                            {subject.name}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            {/* Topic Selection */}
-                            {subjectId && (
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Alt Konu
-                                    </label>
-                                    <select
-                                        value={topicId}
-                                        onChange={(e) => setTopicId(e.target.value)}
-                                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                            <div className="flex gap-2 flex-wrap">
+                                {taskTypes.map((type) => (
+                                    <button
+                                        type="button"
+                                        key={type.id}
+                                        onClick={() => setSelectedType(type.id)}
+                                        className={`px-3 py-1.5 rounded-lg text-sm font-medium transition border ${selectedType === type.id
+                                            ? 'bg-indigo-50 border-indigo-200 text-indigo-700'
+                                            : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                                            }`}
                                     >
-                                        <option value="">Seçiniz...</option>
-                                        {filteredTopics.map((topic) => (
-                                            <option key={topic.id} value={topic.id}>
-                                                {topic.name}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-                            )}
-
-                            {/* Task Type Switcher */}
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Görev Tipi
-                                </label>
-                                <div className="flex gap-2">
-                                    {taskTypes.map((type) => (
-                                        <button
-                                            type="button"
-                                            key={type.id}
-                                            onClick={() => setSelectedType(type.id)}
-                                            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition border ${selectedType === type.id
-                                                    ? 'bg-indigo-50 border-indigo-200 text-indigo-700'
-                                                    : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
-                                                }`}
-                                        >
-                                            {type.name}
-                                        </button>
-                                    ))}
-                                </div>
+                                        {type.name}
+                                    </button>
+                                ))}
                             </div>
+                        </div>
 
-                            {/* Description */}
-                            <div>
+                        {/* Description */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">
+                                Açıklama / Notlar
+                            </label>
+                            <textarea
+                                value={description}
+                                onChange={(e) => setDescription(e.target.value)}
+                                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                rows={2}
+                                placeholder="Detaylar..."
+                            />
+                        </div>
+
+                        {/* Dynamic Fields */}
+                        {currentTaskType?.schema.fields.map((field) => (
+                            <div key={field.name}>
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Açıklama / Notlar
+                                    {field.label}
                                 </label>
-                                <textarea
-                                    value={description}
-                                    onChange={(e) => setDescription(e.target.value)}
+                                <input
+                                    type={field.type === 'url' ? 'url' : field.type === 'number' ? 'number' : 'text'}
+                                    value={(metadata[field.name] as string) || ''}
+                                    onChange={(e) =>
+                                        setMetadata({ ...metadata, [field.name]: field.type === 'number' ? parseInt(e.target.value) : e.target.value })
+                                    }
                                     className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                                    rows={2}
-                                    placeholder="Detaylar..."
+                                    placeholder={field.placeholder}
+                                    required={field.required}
                                 />
                             </div>
-
-                            {/* Dynamic Fields (Video URL etc.) */}
-                            {currentTaskType?.schema.fields.map((field) => (
-                                <div key={field.name}>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        {field.label}
-                                    </label>
-                                    <input
-                                        type={field.type === 'url' ? 'url' : field.type === 'number' ? 'number' : 'text'}
-                                        value={(metadata[field.name] as string) || ''}
-                                        onChange={(e) =>
-                                            setMetadata({ ...metadata, [field.name]: field.type === 'number' ? parseInt(e.target.value) : e.target.value })
-                                        }
-                                        className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                                        placeholder={field.placeholder}
-                                        required={field.required}
-                                    />
-                                </div>
-                            ))}
-                        </div>
-                    )}
+                        ))}
+                    </div>
 
                     {/* Submit Actions */}
                     <div className="flex gap-3 pt-4 border-t border-gray-100">

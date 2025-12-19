@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import AddQuickTodoButton from './AddQuickTodoButton'
 
 interface MonthlyViewProps {
     userId: string
@@ -24,6 +25,13 @@ export default function MonthlyView({ userId, onDateSelect }: MonthlyViewProps) 
         loadMonthData()
     }, [userId, currentMonth])
 
+    const toLocalISOString = (date: Date) => {
+        const year = date.getFullYear()
+        const month = String(date.getMonth() + 1).padStart(2, '0')
+        const day = String(date.getDate()).padStart(2, '0')
+        return `${year}-${month}-${day}`
+    }
+
     const loadMonthData = async () => {
         setLoading(true)
 
@@ -33,8 +41,8 @@ export default function MonthlyView({ userId, onDateSelect }: MonthlyViewProps) 
         const firstDay = new Date(year, month, 1)
         const lastDay = new Date(year, month + 1, 0)
 
-        const firstDateStr = firstDay.toISOString().split('T')[0]
-        const lastDateStr = lastDay.toISOString().split('T')[0]
+        const firstDateStr = toLocalISOString(firstDay)
+        const lastDateStr = toLocalISOString(lastDay)
 
         // Ayın tüm görevlerini çek
         const { data, error } = await supabase
@@ -195,7 +203,7 @@ export default function MonthlyView({ userId, onDateSelect }: MonthlyViewProps) 
                     {days.map((date, index) => {
                         if (!date) return <div key={index} />
 
-                        const dateStr = date.toISOString().split('T')[0]
+                        const dateStr = toLocalISOString(date)
                         const dayData = monthData.get(dateStr)
                         const today = isToday(date)
                         const currentMonth = isCurrentMonth(date)
@@ -217,10 +225,10 @@ export default function MonthlyView({ userId, onDateSelect }: MonthlyViewProps) 
 
                                 {dayData && dayData.taskCount > 0 && (
                                     <div className={`absolute bottom-0.5 right-0.5 text-[10px] font-medium px-1 rounded ${dayData.completedCount === dayData.taskCount
-                                            ? 'bg-green-100 text-green-700'
-                                            : dayData.completedCount > 0
-                                                ? 'bg-yellow-100 text-yellow-700'
-                                                : 'bg-indigo-100 text-indigo-700'
+                                        ? 'bg-green-100 text-green-700'
+                                        : dayData.completedCount > 0
+                                            ? 'bg-yellow-100 text-yellow-700'
+                                            : 'bg-indigo-100 text-indigo-700'
                                         }`}>
                                         {dayData.completedCount}/{dayData.taskCount}
                                     </div>
@@ -230,6 +238,7 @@ export default function MonthlyView({ userId, onDateSelect }: MonthlyViewProps) 
                     })}
                 </div>
             </div>
+            <AddQuickTodoButton onTaskAdded={loadMonthData} />
         </div>
     )
 }

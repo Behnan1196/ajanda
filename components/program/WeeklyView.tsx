@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import TaskCard from './TaskCard'
 import TaskFormModal from './TaskFormModal'
+import AddQuickTodoButton from './AddQuickTodoButton'
 
 interface Task {
     id: string
@@ -60,6 +61,12 @@ export default function WeeklyView({ userId, onDateSelect = () => { }, relations
         loadWeekTasks()
     }, [userId, currentWeekStart])
 
+    const toLocalISOString = (date: Date) => {
+        const offset = date.getTimezoneOffset()
+        const localDate = new Date(date.getTime() - (offset * 60 * 1000))
+        return localDate.toISOString().split('T')[0]
+    }
+
     const loadWeekTasks = async (silent = false) => {
         if (!silent) setLoading(true)
 
@@ -68,8 +75,8 @@ export default function WeeklyView({ userId, onDateSelect = () => { }, relations
         end.setDate(end.getDate() + 6)
         end.setHours(23, 59, 59, 999)
 
-        const startStr = start.toISOString().split('T')[0]
-        const endStr = end.toISOString().split('T')[0]
+        const startStr = toLocalISOString(start)
+        const endStr = toLocalISOString(end)
 
         const { data, error } = await supabase
             .from('tasks')
@@ -196,7 +203,7 @@ export default function WeeklyView({ userId, onDateSelect = () => { }, relations
             {/* Week Grid */}
             <div className="grid grid-cols-1 md:grid-cols-7 gap-4">
                 {weekDays.map((date) => {
-                    const dateStr = date.toISOString().split('T')[0]
+                    const dateStr = toLocalISOString(date)
                     const tasksForDay = weekTasks.get(dateStr) || []
                     const isDayToday = isToday(date)
                     const dayName = date.toLocaleDateString('tr-TR', { weekday: 'long' })
@@ -298,6 +305,7 @@ export default function WeeklyView({ userId, onDateSelect = () => { }, relations
                     }}
                 />
             )}
+            <AddQuickTodoButton onTaskAdded={() => loadWeekTasks(true)} />
         </div>
     )
 }

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import TaskCard from './TaskCard'
 import AddTaskButton from './AddTaskButton'
+import AddQuickTodoButton from './AddQuickTodoButton'
 import TaskFormModal from './TaskFormModal'
 
 interface Task {
@@ -41,9 +42,15 @@ export default function TodayView({ userId, initialDate }: TodayViewProps) {
     const [selectedDate, setSelectedDate] = useState(initialDate || new Date())
     const supabase = createClient()
 
+    const toLocalISOString = (date: Date) => {
+        const offset = date.getTimezoneOffset()
+        const localDate = new Date(date.getTime() - (offset * 60 * 1000))
+        return localDate.toISOString().split('T')[0]
+    }
+
     const loadTasks = async (date: Date) => {
         setLoading(true)
-        const dateString = date.toISOString().split('T')[0]
+        const dateString = toLocalISOString(date)
 
         const { data, error } = await supabase
             .from('tasks')
@@ -251,6 +258,7 @@ export default function TodayView({ userId, initialDate }: TodayViewProps) {
                 )}
             </div>
 
+            <AddQuickTodoButton initialDate={selectedDate} onTaskAdded={() => loadTasks(selectedDate)} />
             <AddTaskButton onClick={handleAddTask} />
 
             {showTaskModal && (
