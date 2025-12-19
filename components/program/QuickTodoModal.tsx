@@ -110,9 +110,9 @@ export default function QuickTodoModal({ onClose, initialDate, onTaskAdded, edit
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) return
 
-        let attachmentUrl = editingTask?.metadata?.attachment_url || null
+        let attachmentUrl = imagePreview
 
-        // Handle Image Upload if new file selected
+        // Handle Image Upload if new file selected (imageFile is only set on new selection)
         if (imageFile) {
             setUploading(true)
             try {
