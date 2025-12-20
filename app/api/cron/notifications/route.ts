@@ -11,9 +11,9 @@ export async function GET(request: Request) {
     }
 
     // Configure VAPID lazily inside the handler to avoid build-time errors
-    const vapidPublic = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
-    const vapidPrivate = process.env.VAPID_PRIVATE_KEY
-    const vapidSubject = process.env.VAPID_SUBJECT || 'mailto:behnan@example.com'
+    const vapidPublic = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY?.trim()
+    const vapidPrivate = process.env.VAPID_PRIVATE_KEY?.trim()
+    const vapidSubject = process.env.VAPID_SUBJECT?.trim() || 'mailto:behnan@example.com'
 
     if (!vapidPublic || !vapidPrivate) {
         console.error('VAPID keys are missing from environment')
