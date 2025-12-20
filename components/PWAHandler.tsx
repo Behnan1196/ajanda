@@ -35,16 +35,16 @@ export default function PWAHandler() {
             const localNow = new Date(now.getTime() - (offset * 60 * 1000))
             const today = localNow.toISOString().split('T')[0]
 
-            // Clear notifiedTasks set if the day has changed (simple reset)
-            // Or just check tasks for today.
-
+            // We use .lte('due_time', ...) to catch notifications that might have been 
+            // missed while the app was in the background/throttled.
             const { data: tasks, error } = await supabase
                 .from('tasks')
                 .select('id, title, due_time')
                 .eq('user_id', user.id)
                 .eq('due_date', today)
                 .eq('is_completed', false)
-                .eq('due_time', currentTimeString)
+                .lte('due_time', currentTimeString)
+                .order('due_time', { ascending: true })
 
             if (error) {
                 console.error('Error fetching tasks for notifications:', error)
