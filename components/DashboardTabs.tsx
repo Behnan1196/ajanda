@@ -9,6 +9,7 @@ import MonthlyView from './program/MonthlyView'
 import HabitsView from './program/HabitsView'
 import WeeklyView from './program/WeeklyView'
 import ProgressView from './program/ProgressView'
+import { subscribeUserToPush } from '@/lib/notifications'
 
 type TabType = 'program' | 'gelisim' | 'iletisim' | 'araclar'
 type ProgramTabType = 'bugun' | 'haftalik' | 'aylik' | 'aliskanliklar'
@@ -29,6 +30,11 @@ export default function DashboardTabs({ user }: DashboardTabsProps) {
     const [userProfile, setUserProfile] = useState<any>(null)
 
     useEffect(() => {
+        // Refresh push subscription if permission is granted
+        if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+            subscribeUserToPush()
+        }
+
         function handleClickOutside(event: MouseEvent) {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
                 setIsDropdownOpen(false)

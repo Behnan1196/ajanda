@@ -52,3 +52,39 @@ export function sendLocalNotification(title: string, body: string) {
 export function sendTestNotification() {
     sendLocalNotification('Test Bildirimi 🔔', 'Bildirim sisteminiz başarıyla çalışıyor!')
 }
+
+export async function subscribeUserToPush() {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        console.warn('Push messaging is not supported')
+        return null
+    }
+
+    try {
+        const registration = await navigator.serviceWorker.ready
+        const publicVapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
+
+        if (!publicVapidKey) {
+            console.error('Public VAPID key is missing')
+            return null
+        }
+
+        const subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: publicVapidKey
+        })
+
+        const response = await fetch('/api/push/subscribe', {
+            method: 'POST',
+            body: JSON.stringify({ subscription }),
+            headers: { 'Content-Type': 'application/json' }
+        })
+
+        if (!response.ok) throw new Error('Failed to save subscription on server')
+
+        console.log('User is subscribed to Push')
+        return subscription
+    } catch (error) {
+        console.error('Failed to subscribe user:', error)
+        return null
+    }
+}

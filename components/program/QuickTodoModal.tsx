@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
-import { requestNotificationPermission, sendTestNotification } from '@/lib/notifications'
+import { requestNotificationPermission, sendTestNotification, subscribeUserToPush } from '@/lib/notifications'
 
 interface Task {
     id: string
@@ -55,8 +55,12 @@ export default function QuickTodoModal({ onClose, initialDate, onTaskAdded, edit
 
     const handleRequestPermission = async () => {
         const granted = await requestNotificationPermission()
-        if (granted) setNotificationPermission('granted')
-        else setNotificationPermission(Notification.permission)
+        if (granted) {
+            setNotificationPermission('granted')
+            await subscribeUserToPush()
+        } else {
+            setNotificationPermission(Notification.permission)
+        }
     }
 
     // Helper for local date string
