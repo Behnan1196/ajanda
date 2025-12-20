@@ -1,18 +1,30 @@
 import { createClient } from '@supabase/supabase-js'
 import webpush from 'web-push'
 
-// Configure VAPID
-webpush.setVapidDetails(
-    process.env.VAPID_SUBJECT || 'mailto:behnan@example.com',
-    process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || '',
-    process.env.VAPID_PRIVATE_KEY || ''
-)
+export const dynamic = 'force-dynamic'
 
 export async function GET(request: Request) {
-    // Basic security check (could use an API key in header)
+    // Basic security check
     const authHeader = request.headers.get('authorization')
     if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
         // return new Response('Unauthorized', { status: 401 })
+    }
+
+    // Configure VAPID lazily inside the handler to avoid build-time errors
+    const vapidPublic = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
+    const vapidPrivate = process.env.VAPID_PRIVATE_KEY
+    const vapidSubject = process.env.VAPID_SUBJECT || 'mailto:behnan@example.com'
+
+    if (!vapidPublic || !vapidPrivate) {
+        console.error('VAPID keys are missing from environment')
+        return new Response('VAPID keys missing', { status: 500 })
+    }
+
+    try {
+        webpush.setVapidDetails(vapidSubject, vapidPublic, vapidPrivate)
+    } catch (err: any) {
+        console.error('VAPID Configuration Error:', err.message)
+        return new Response(`VAPID Error: ${err.message}`, { status: 500 })
     }
 
     const supabase = createClient(
