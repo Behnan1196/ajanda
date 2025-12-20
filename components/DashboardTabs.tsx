@@ -10,6 +10,7 @@ import HabitsView from './program/HabitsView'
 import WeeklyView from './program/WeeklyView'
 import ProgressView from './program/ProgressView'
 import { subscribeUserToPush } from '@/lib/notifications'
+import LifeHubView from './program/LifeHubView'
 
 type TabType = 'program' | 'gelisim' | 'iletisim' | 'araclar'
 type ProgramTabType = 'bugun' | 'haftalik' | 'aylik' | 'aliskanliklar'
@@ -203,8 +204,8 @@ export default function DashboardTabs({ user }: DashboardTabsProps) {
                 )}
 
                 {activeTab === 'araclar' && (
-                    <div className="p-4 text-center py-12 text-gray-500">
-                        Araçlar modülü yakında eklenecek
+                    <div className="p-4">
+                        <LifeHubView />
                     </div>
                 )}
             </div>
