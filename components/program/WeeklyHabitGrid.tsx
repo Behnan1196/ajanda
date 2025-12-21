@@ -2,6 +2,23 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import {
+    DndContext,
+    closestCenter,
+    PointerSensor,
+    TouchSensor,
+    useSensor,
+    useSensors,
+    DragEndEvent,
+} from '@dnd-kit/core'
+import {
+    SortableContext,
+    verticalListSortingStrategy,
+    useSortable,
+    arrayMove,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
+import { SortableHabitRow, SortableHabitCard } from './SortableHabitComponents'
 
 interface Habit {
     id: string
@@ -23,6 +40,21 @@ export default function WeeklyHabitGrid({ userId }: WeeklyHabitGridProps) {
     const [weekStart, setWeekStart] = useState<Date>(getMonday(new Date()))
     const [loading, setLoading] = useState(true)
     const supabase = createClient()
+
+    // Drag & Drop sensors
+    const sensors = useSensors(
+        useSensor(PointerSensor, {
+            activationConstraint: {
+                distance: 8, // 8px movement to activate
+            },
+        }),
+        useSensor(TouchSensor, {
+            activationConstraint: {
+                delay: 250, // Long press on mobile
+                tolerance: 5,
+            },
+        })
+    )
 
     // Get Monday of the week for a given date
     function getMonday(date: Date): Date {
@@ -54,10 +86,10 @@ export default function WeeklyHabitGrid({ userId }: WeeklyHabitGridProps) {
     const loadHabits = async () => {
         const { data } = await supabase
             .from('habits')
-            .select('id, name, description, color, icon, current_streak, longest_streak')
+            .select('id, name, description, color, icon, current_streak, longest_streak, sort_order')
             .eq('user_id', userId)
             .eq('is_active', true)
-            .order('created_at', { ascending: false })
+            .order('sort_order', { ascending: true })
 
         if (data) {
             setHabits(data)
@@ -134,6 +166,32 @@ export default function WeeklyHabitGrid({ userId }: WeeklyHabitGridProps) {
         setWeekStart(getMonday(new Date()))
     }
 
+    const handleDragEnd = async (event: DragEndEvent) => {
+        const { active, over } = event
+
+        if (!over || active.id === over.id) return
+
+        const oldIndex = habits.findIndex(h => h.id === active.id)
+        const newIndex = habits.findIndex(h => h.id === over.id)
+
+        // Optimistic update
+        const newHabits = arrayMove(habits, oldIndex, newIndex)
+        setHabits(newHabits)
+
+        // Update database
+        await updateSortOrder(newHabits)
+    }
+
+    const updateSortOrder = async (reorderedHabits: typeof habits) => {
+        // Update each habit's sort_order
+        for (let i = 0; i < reorderedHabits.length; i++) {
+            await supabase
+                .from('habits')
+                .update({ sort_order: i })
+                .eq('id', reorderedHabits[i].id)
+        }
+    }
+
     if (loading) {
         return (
             <div className="flex justify-center py-12">
@@ -192,112 +250,61 @@ export default function WeeklyHabitGrid({ userId }: WeeklyHabitGridProps) {
             </div>
 
             {/* Desktop Table View */}
-            <div className="hidden md:block overflow-x-auto bg-white rounded-2xl shadow-sm">
-                <table className="w-full">
-                    <thead>
-                        <tr className="border-b-2 border-gray-200">
-                            <th className="text-left p-4 font-bold text-gray-900">Alışkanlık</th>
-                            {weekDates.map((date, i) => (
-                                <th key={i} className="text-center p-4 w-20">
-                                    <div className={`text-xs ${isToday(date) ? 'text-indigo-600 font-bold' : 'text-gray-500'}`}>
-                                        {dayNames[i]}
-                                    </div>
-                                    <div className={`text-sm font-bold ${isToday(date) ? 'text-indigo-600' : 'text-gray-900'}`}>
-                                        {date.getDate()}
-                                    </div>
-                                </th>
-                            ))}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {habits.map(habit => (
-                            <tr key={habit.id} className="border-b border-gray-100 hover:bg-gray-50 transition">
-                                <td className="p-4">
-                                    <div className="flex items-center gap-3">
-                                        <div
-                                            className="w-10 h-10 rounded-lg flex items-center justify-center text-xl"
-                                            style={{ backgroundColor: `${habit.color}15` }}
-                                        >
-                                            {habit.icon}
-                                        </div>
-                                        <div>
-                                            <div className="font-semibold text-gray-900">{habit.name}</div>
-                                            {habit.current_streak > 0 && (
-                                                <div className="text-xs text-gray-500">
-                                                    🔥 {habit.current_streak} gün
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                </td>
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                <div className="hidden md:block overflow-x-auto bg-white rounded-2xl shadow-sm">
+                    <table className="w-full">
+                        <thead>
+                            <tr className="border-b-2 border-gray-200">
+                                <th className="text-left p-4 font-bold text-gray-900 w-8"></th>
+                                <th className="text-left p-4 font-bold text-gray-900">Alışkanlık</th>
                                 {weekDates.map((date, i) => (
-                                    <td key={i} className="text-center p-4">
-                                        <button
-                                            onClick={() => toggleCompletion(habit.id, date)}
-                                            className={`w-10 h-10 rounded-full transition-all ${isCompleted(habit.id, date)
-                                                    ? 'text-white shadow-md'
-                                                    : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
-                                                }`}
-                                            style={isCompleted(habit.id, date) ? { backgroundColor: habit.color } : {}}
-                                        >
-                                            {isCompleted(habit.id, date) ? '✓' : '○'}
-                                        </button>
-                                    </td>
+                                    <th key={i} className="text-center p-4 w-20">
+                                        <div className={`text-xs ${isToday(date) ? 'text-indigo-600 font-bold' : 'text-gray-500'}`}>
+                                            {dayNames[i]}
+                                        </div>
+                                        <div className={`text-sm font-bold ${isToday(date) ? 'text-indigo-600' : 'text-gray-900'}`}>
+                                            {date.getDate()}
+                                        </div>
+                                    </th>
                                 ))}
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
+                        </thead>
+                        <tbody>
+                            <SortableContext items={habits.map(h => h.id)} strategy={verticalListSortingStrategy}>
+                                {habits.map(habit => (
+                                    <SortableHabitRow
+                                        key={habit.id}
+                                        habit={habit}
+                                        weekDates={weekDates}
+                                        isCompleted={isCompleted}
+                                        isToday={isToday}
+                                        toggleCompletion={toggleCompletion}
+                                    />
+                                ))}
+                            </SortableContext>
+                        </tbody>
+                    </table>
+                </div>
+            </DndContext>
 
             {/* Mobile Card View */}
-            <div className="block md:hidden space-y-3">
-                {habits.map(habit => (
-                    <div key={habit.id} className="bg-white rounded-2xl p-4 shadow-sm">
-                        {/* Header */}
-                        <div className="flex items-center gap-3 mb-3">
-                            <div
-                                className="w-12 h-12 rounded-lg flex items-center justify-center text-2xl"
-                                style={{ backgroundColor: `${habit.color}15` }}
-                            >
-                                {habit.icon}
-                            </div>
-                            <div className="flex-1">
-                                <div className="font-bold text-gray-900">{habit.name}</div>
-                                {habit.current_streak > 0 && (
-                                    <div className="text-xs text-gray-500">
-                                        🔥 {habit.current_streak} gün streak
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Week Grid */}
-                        <div className="grid grid-cols-7 gap-1">
-                            {weekDates.map((date, i) => (
-                                <button
-                                    key={i}
-                                    onClick={() => toggleCompletion(habit.id, date)}
-                                    className="flex flex-col items-center p-2 rounded-lg transition"
-                                >
-                                    <div className={`text-[10px] mb-1 ${isToday(date) ? 'text-indigo-600 font-bold' : 'text-gray-500'}`}>
-                                        {dayNames[i]}
-                                    </div>
-                                    <div
-                                        className={`w-8 h-8 rounded-full flex items-center justify-center text-sm transition-all ${isCompleted(habit.id, date)
-                                                ? 'text-white shadow-md'
-                                                : 'bg-gray-100 text-gray-400'
-                                            }`}
-                                        style={isCompleted(habit.id, date) ? { backgroundColor: habit.color } : {}}
-                                    >
-                                        {isCompleted(habit.id, date) ? '✓' : date.getDate()}
-                                    </div>
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                ))}
-            </div>
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                <div className="block md:hidden space-y-3">
+                    <SortableContext items={habits.map(h => h.id)} strategy={verticalListSortingStrategy}>
+                        {habits.map(habit => (
+                            <SortableHabitCard
+                                key={habit.id}
+                                habit={habit}
+                                weekDates={weekDates}
+                                dayNames={dayNames}
+                                isCompleted={isCompleted}
+                                isToday={isToday}
+                                toggleCompletion={toggleCompletion}
+                            />
+                        ))}
+                    </SortableContext>
+                </div>
+            </DndContext>
         </div>
     )
 }
