@@ -216,12 +216,26 @@ export default function TaskFormModal({ userId, editingTask, defaultDate, onClos
                 return
             }
 
+            // Get max sort_order for this user and date to add new task at bottom
+            const { data: maxOrderData } = await supabase
+                .from('tasks')
+                .select('sort_order')
+                .eq('user_id', userId)
+                .eq('due_date', payload.due_date)
+                .is('project_id', null)
+                .order('sort_order', { ascending: false })
+                .limit(1)
+                .single()
+
+            const newSortOrder = (maxOrderData?.sort_order ?? -1) + 1
+
             const { error } = await supabase.from('tasks').insert({
                 ...payload,
                 user_id: userId,
                 created_by: currentUser.id,
                 assigned_by: currentUser.id !== userId ? currentUser.id : null,
-                relationship_id: relationshipId || null
+                relationship_id: relationshipId || null,
+                sort_order: newSortOrder
             })
 
             if (error) {

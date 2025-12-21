@@ -11,6 +11,7 @@ interface HabitsViewProps {
 
 export default function HabitsView({ userId }: HabitsViewProps) {
     const [showModal, setShowModal] = useState(false)
+    const [gridKey, setGridKey] = useState(0) // Key to force grid refresh
 
     return (
         <div className="space-y-4">
@@ -25,7 +26,7 @@ export default function HabitsView({ userId }: HabitsViewProps) {
             </div>
 
             {/* Weekly Grid */}
-            <WeeklyHabitGrid userId={userId} />
+            <WeeklyHabitGrid key={gridKey} userId={userId} />
 
             {/* Add Button (FAB) */}
             <AddHabitButton onClick={() => setShowModal(true)} />
@@ -38,7 +39,7 @@ export default function HabitsView({ userId }: HabitsViewProps) {
                     onClose={() => setShowModal(false)}
                     onSaved={() => {
                         setShowModal(false)
-                        window.location.reload() // Refresh to show new habit
+                        setGridKey(prev => prev + 1) // Refresh grid without page reload
                     }}
                 />
             )}

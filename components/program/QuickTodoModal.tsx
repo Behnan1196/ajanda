@@ -227,6 +227,19 @@ export default function QuickTodoModal({ onClose, initialDate, onTaskAdded, edit
                 typeId = anyType?.id
             }
 
+            // Get max sort_order for this user and date to add new task at bottom
+            const { data: maxOrderData } = await supabase
+                .from('tasks')
+                .select('sort_order')
+                .eq('user_id', user.id)
+                .eq('due_date', dueDate)
+                .is('project_id', null)
+                .order('sort_order', { ascending: false })
+                .limit(1)
+                .single()
+
+            const newSortOrder = (maxOrderData?.sort_order ?? -1) + 1
+
             const { error: insertError } = await supabase
                 .from('tasks')
                 .insert({
@@ -235,7 +248,8 @@ export default function QuickTodoModal({ onClose, initialDate, onTaskAdded, edit
                     user_id: user.id,
                     created_by: user.id,
                     is_private: true,
-                    is_completed: false
+                    is_completed: false,
+                    sort_order: newSortOrder
                 })
             error = insertError
         }

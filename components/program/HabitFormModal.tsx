@@ -124,7 +124,21 @@ export default function HabitFormModal({
                 onSaved()
             }
         } else {
-            const { error } = await supabase.from('habits').insert(habitData)
+            // Get max sort_order for this user to add new habit at bottom
+            const { data: maxOrderData } = await supabase
+                .from('habits')
+                .select('sort_order')
+                .eq('user_id', userId)
+                .order('sort_order', { ascending: false })
+                .limit(1)
+                .single()
+
+            const newSortOrder = (maxOrderData?.sort_order ?? -1) + 1
+
+            const { error } = await supabase.from('habits').insert({
+                ...habitData,
+                sort_order: newSortOrder
+            })
 
             if (error) {
                 alert('Oluşturma hatası: ' + error.message)
@@ -166,8 +180,8 @@ export default function HabitFormModal({
                                     type="button"
                                     onClick={() => setIcon(iconOption)}
                                     className={`text-2xl p-3 rounded-lg border-2 transition ${icon === iconOption
-                                            ? 'border-indigo-600 bg-indigo-50'
-                                            : 'border-gray-200 hover:border-gray-300'
+                                        ? 'border-indigo-600 bg-indigo-50'
+                                        : 'border-gray-200 hover:border-gray-300'
                                         }`}
                                 >
                                     {iconOption}
@@ -294,8 +308,8 @@ export default function HabitFormModal({
                                 type="button"
                                 onClick={() => setTargetType('boolean')}
                                 className={`py-3 px-4 rounded-lg border-2 text-sm font-medium transition ${targetType === 'boolean'
-                                        ? 'border-indigo-600 bg-indigo-50 text-indigo-600'
-                                        : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                                    ? 'border-indigo-600 bg-indigo-50 text-indigo-600'
+                                    : 'border-gray-200 text-gray-600 hover:border-gray-300'
                                     }`}
                             >
                                 Yapıldı/Yapılmadı
@@ -304,8 +318,8 @@ export default function HabitFormModal({
                                 type="button"
                                 onClick={() => setTargetType('count')}
                                 className={`py-3 px-4 rounded-lg border-2 text-sm font-medium transition ${targetType === 'count'
-                                        ? 'border-indigo-600 bg-indigo-50 text-indigo-600'
-                                        : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                                    ? 'border-indigo-600 bg-indigo-50 text-indigo-600'
+                                    : 'border-gray-200 text-gray-600 hover:border-gray-300'
                                     }`}
                             >
                                 Sayı
@@ -314,8 +328,8 @@ export default function HabitFormModal({
                                 type="button"
                                 onClick={() => setTargetType('duration')}
                                 className={`py-3 px-4 rounded-lg border-2 text-sm font-medium transition ${targetType === 'duration'
-                                        ? 'border-indigo-600 bg-indigo-50 text-indigo-600'
-                                        : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                                    ? 'border-indigo-600 bg-indigo-50 text-indigo-600'
+                                    : 'border-gray-200 text-gray-600 hover:border-gray-300'
                                     }`}
                             >
                                 Süre
