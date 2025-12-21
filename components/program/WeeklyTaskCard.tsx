@@ -99,8 +99,8 @@ export default function WeeklyTaskCard({
                 </div>
             </div>
 
-            {/* Menu Button */}
-            <div className="absolute right-2 top-2">
+            {/* Menu and Toggle Buttons */}
+            <div className="absolute right-2 top-2 flex flex-col gap-1 items-center">
                 <button
                     onClick={(e) => {
                         e.stopPropagation()
@@ -113,9 +113,25 @@ export default function WeeklyTaskCard({
                     </svg>
                 </button>
 
+                {/* Direct Toggle Button */}
+                <button
+                    onClick={(e) => {
+                        e.stopPropagation()
+                        task.is_completed ? onUncomplete() : onComplete()
+                    }}
+                    className={`w-6 h-6 rounded-full border flex items-center justify-center transition-all ${task.is_completed
+                            ? 'bg-green-500 border-green-500 text-white'
+                            : 'border-gray-300 text-transparent hover:border-green-500 hover:text-green-500'
+                        }`}
+                >
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                    </svg>
+                </button>
+
                 {/* Dropdown Menu */}
                 {showMenu && (
-                    <div className="absolute right-0 mt-1 w-40 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-10">
+                    <div className="absolute right-0 mt-8 w-40 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-10">
                         <button
                             onClick={(e) => {
                                 e.stopPropagation()

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import WeeklyTaskCard from './WeeklyTaskCard'
 import TaskFormModal from './TaskFormModal'
+import QuickTodoModal from './QuickTodoModal'
 import AddQuickTodoButton from './AddQuickTodoButton'
 import {
     DndContext,
@@ -31,6 +32,7 @@ interface Task {
     due_date: string | null
     due_time: string | null
     is_completed: boolean
+    is_private: boolean
     subject_id: string | null
     topic_id: string | null
     task_types: {
@@ -62,6 +64,7 @@ export default function WeeklyView({ userId, onDateSelect = () => { }, relations
     const [weekTasks, setWeekTasks] = useState<Map<string, Task[]>>(new Map())
     const [loading, setLoading] = useState(true)
     const [showTaskModal, setShowTaskModal] = useState(false)
+    const [showQuickTodoModal, setShowQuickTodoModal] = useState(false)
     const [selectedDate, setSelectedDate] = useState<Date>(new Date())
     const [editingTask, setEditingTask] = useState<Task | null>(null)
     const supabase = createClient()
@@ -182,7 +185,11 @@ export default function WeeklyView({ userId, onDateSelect = () => { }, relations
     const handleTaskEdit = (task: Task) => {
         setEditingTask(task)
         setSelectedDate(new Date(task.due_date + 'T00:00:00')) // Set date context
-        setShowTaskModal(true)
+        if (task.is_private) {
+            setShowQuickTodoModal(true)
+        } else {
+            setShowTaskModal(true)
+        }
     }
 
     const handleTaskDelete = async (taskId: string) => {
@@ -199,6 +206,7 @@ export default function WeeklyView({ userId, onDateSelect = () => { }, relations
 
     const handleTaskSaved = () => {
         setShowTaskModal(false)
+        setShowQuickTodoModal(false)
         setEditingTask(null)
         loadWeekTasks(true)
     }
@@ -410,6 +418,18 @@ export default function WeeklyView({ userId, onDateSelect = () => { }, relations
                     }}
                     onTaskSaved={handleTaskSaved}
                     relationshipId={relationshipId}
+                />
+            )}
+
+            {showQuickTodoModal && (
+                <QuickTodoModal
+                    onClose={() => {
+                        setShowQuickTodoModal(false)
+                        setEditingTask(null)
+                    }}
+                    onTaskAdded={handleTaskSaved}
+                    editingTask={editingTask}
+                    initialDate={selectedDate}
                 />
             )}
             <AddQuickTodoButton onTaskAdded={() => loadWeekTasks(true)} />
