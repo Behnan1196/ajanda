@@ -2,11 +2,25 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import TaskCard from './TaskCard'
+import SortableTaskCard from './SortableTaskCard'
 import AddTaskButton from './AddTaskButton'
 import AddQuickTodoButton from './AddQuickTodoButton'
 import TaskFormModal from './TaskFormModal'
 import QuickTodoModal from './QuickTodoModal'
+import {
+    DndContext,
+    closestCenter,
+    PointerSensor,
+    TouchSensor,
+    useSensor,
+    useSensors,
+    DragEndEvent,
+} from '@dnd-kit/core'
+import {
+    SortableContext,
+    verticalListSortingStrategy,
+    arrayMove,
+} from '@dnd-kit/sortable'
 
 interface Task {
     id: string
@@ -45,6 +59,42 @@ export default function TodayView({ userId, initialDate }: TodayViewProps) {
     const [selectedDate, setSelectedDate] = useState(initialDate || new Date())
     const supabase = createClient()
 
+    // Drag & Drop sensors
+    const sensors = useSensors(
+        useSensor(PointerSensor, {
+            activationConstraint: {
+                distance: 8,
+            },
+        }),
+        useSensor(TouchSensor, {
+            activationConstraint: {
+                delay: 250,
+                tolerance: 5,
+            },
+        })
+    )
+
+    const handleDragEnd = async (event: DragEndEvent) => {
+        const { active, over } = event
+
+        if (!over || active.id === over.id) return
+
+        const oldIndex = tasks.findIndex(t => t.id === active.id)
+        const newIndex = tasks.findIndex(t => t.id === over.id)
+
+        // Optimistic update
+        const newTasks = arrayMove(tasks, oldIndex, newIndex)
+        setTasks(newTasks)
+
+        // Update database
+        for (let i = 0; i < newTasks.length; i++) {
+            await supabase
+                .from('tasks')
+                .update({ sort_order: i })
+                .eq('id', newTasks[i].id)
+        }
+    }
+
     const toLocalISOString = (date: Date) => {
         const offset = date.getTimezoneOffset()
         const localDate = new Date(date.getTime() - (offset * 60 * 1000))
@@ -76,6 +126,7 @@ export default function TodayView({ userId, initialDate }: TodayViewProps) {
             .eq('user_id', userId)
             .is('project_id', null)
             .eq('due_date', dateString)
+            .order('sort_order', { ascending: true })
             .order('due_time', { ascending: true, nullsFirst: false })
 
         if (error) {
@@ -277,25 +328,29 @@ export default function TodayView({ userId, initialDate }: TodayViewProps) {
                 </div>
             </div>
 
-            <div className="space-y-3 mb-20">
-                {tasks.map((task) => (
-                    <TaskCard
-                        key={task.id}
-                        task={task}
-                        onComplete={() => handleTaskComplete(task.id)}
-                        onUncomplete={() => handleTaskUncomplete(task.id)}
-                        onEdit={() => handleTaskEdit(task)}
-                        onDelete={() => handleTaskDelete(task.id)}
-                    />
-                ))}
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                <SortableContext items={tasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
+                    <div className="space-y-3 mb-20">
+                        {tasks.map((task) => (
+                            <SortableTaskCard
+                                key={task.id}
+                                task={task}
+                                onComplete={() => handleTaskComplete(task.id)}
+                                onUncomplete={() => handleTaskUncomplete(task.id)}
+                                onEdit={() => handleTaskEdit(task)}
+                                onDelete={() => handleTaskDelete(task.id)}
+                            />
+                        ))}
 
-                {tasks.length === 0 && (
-                    <div className="text-center py-12 bg-white rounded-lg border-2 border-dashed border-gray-300">
-                        <p className="text-gray-500 mb-2">Bu gün için görev yok</p>
-                        <p className="text-sm text-gray-400">+ butonuna tıklayarak ekleyin</p>
+                        {tasks.length === 0 && (
+                            <div className="text-center py-12 bg-white rounded-lg border-2 border-dashed border-gray-300">
+                                <p className="text-gray-500 mb-2">Bu gün için görev yok</p>
+                                <p className="text-sm text-gray-400">+ butonuna tıklayarak ekleyin</p>
+                            </div>
+                        )}
                     </div>
-                )}
-            </div>
+                </SortableContext>
+            </DndContext>
 
             <AddQuickTodoButton initialDate={selectedDate} onTaskAdded={() => loadTasks(selectedDate)} />
             <AddTaskButton onClick={handleAddTask} />
