@@ -2,9 +2,25 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import TaskCard from './TaskCard'
+import WeeklyTaskCard from './WeeklyTaskCard'
 import TaskFormModal from './TaskFormModal'
 import AddQuickTodoButton from './AddQuickTodoButton'
+import {
+    DndContext,
+    closestCenter,
+    PointerSensor,
+    TouchSensor,
+    useSensor,
+    useSensors,
+    DragEndEvent,
+    DragOverlay,
+    useDroppable,
+} from '@dnd-kit/core'
+import {
+    SortableContext,
+    verticalListSortingStrategy,
+    arrayMove,
+} from '@dnd-kit/sortable'
 
 interface Task {
     id: string
@@ -45,7 +61,23 @@ export default function WeeklyView({ userId, onDateSelect = () => { }, relations
     const [loading, setLoading] = useState(true)
     const [showTaskModal, setShowTaskModal] = useState(false)
     const [selectedDate, setSelectedDate] = useState<Date>(new Date())
+    const [editingTask, setEditingTask] = useState<Task | null>(null)
     const supabase = createClient()
+
+    // Drag & Drop sensors
+    const sensors = useSensors(
+        useSensor(PointerSensor, {
+            activationConstraint: {
+                distance: 8,
+            },
+        }),
+        useSensor(TouchSensor, {
+            activationConstraint: {
+                delay: 250,
+                tolerance: 5,
+            },
+        })
+    )
 
     // Helper to get start of week (Monday)
     function getStartOfWeek(date: Date) {
@@ -91,6 +123,7 @@ export default function WeeklyView({ userId, onDateSelect = () => { }, relations
             .is('project_id', null)
             .gte('due_date', startStr)
             .lte('due_date', endStr)
+            .order('sort_order', { ascending: true })
             .order('due_time', { ascending: true, nullsFirst: false })
 
         if (error) {
@@ -100,6 +133,7 @@ export default function WeeklyView({ userId, onDateSelect = () => { }, relations
             data?.forEach((task: any) => {
                 if (task.due_date) {
                     const current = tasksMap.get(task.due_date) || []
+                    // Sort by sort_order within the code as well for safety
                     current.push(task)
                     tasksMap.set(task.due_date, current)
                 }
@@ -142,7 +176,31 @@ export default function WeeklyView({ userId, onDateSelect = () => { }, relations
         setCurrentWeekStart(getStartOfWeek(new Date()))
     }
 
-    // Task handling (Completed only for now, can expand to edit/delete)
+    // Task handling
+    const handleTaskEdit = (task: Task) => {
+        setEditingTask(task)
+        setSelectedDate(new Date(task.due_date + 'T00:00:00')) // Set date context
+        setShowTaskModal(true)
+    }
+
+    const handleTaskDelete = async (taskId: string) => {
+        if (!confirm('Görevi silmek istediğinize emin misiniz?')) return
+
+        const { error } = await supabase
+            .from('tasks')
+            .delete()
+            .eq('id', taskId)
+
+        if (!error) loadWeekTasks(true)
+        else alert('Silme hatası: ' + error.message)
+    }
+
+    const handleTaskSaved = () => {
+        setShowTaskModal(false)
+        setEditingTask(null)
+        loadWeekTasks(true)
+    }
+
     const handleTaskComplete = async (taskId: string) => {
         const { error } = await supabase
             .from('tasks')
@@ -165,6 +223,80 @@ export default function WeeklyView({ userId, onDateSelect = () => { }, relations
             loadWeekTasks(true) // Silent reload
         }
     }
+
+    const handleDragEnd = async (event: DragEndEvent) => {
+        const { active, over } = event
+
+        if (!over) return
+
+        const taskId = active.id as string
+        const activeContainer = active.data.current?.sortable?.containerId || (active as any).id
+        const overContainer = over.id as string
+
+        // task.due_date is our container strategy here
+        // We need to know if it's the same day or different day
+
+        const activeTask = dataFlatten.find(t => t.id === taskId)
+        if (!activeTask) return
+
+        // 1. Cross-day move
+        if (activeTask.due_date !== overContainer && overContainer.startsWith('202')) {
+            // Optimistic update local state
+            const updatedMap = new Map(weekTasks)
+            const oldDayTasks = [...(updatedMap.get(activeTask.due_date!) || [])]
+            const newDayTasks = [...(updatedMap.get(overContainer) || [])]
+
+            const taskToMove = oldDayTasks.find(t => t.id === taskId)
+            if (taskToMove) {
+                const filteredOld = oldDayTasks.filter(t => t.id !== taskId)
+                updatedMap.set(activeTask.due_date!, filteredOld)
+
+                const movedTask = { ...taskToMove, due_date: overContainer }
+                newDayTasks.push(movedTask)
+                updatedMap.set(overContainer, newDayTasks)
+                setWeekTasks(updatedMap)
+
+                // Update database
+                // Get next sort order for new day
+                const nextSortOrder = newDayTasks.length
+                await supabase
+                    .from('tasks')
+                    .update({
+                        due_date: overContainer,
+                        sort_order: nextSortOrder
+                    })
+                    .eq('id', taskId)
+
+                loadWeekTasks(true)
+            }
+        }
+        // 2. Same day reorder
+        else if (active.id !== over.id) {
+            const dateStr = activeTask.due_date!
+            const dayTasks = [...(weekTasks.get(dateStr) || [])]
+            const oldIndex = dayTasks.findIndex(t => t.id === active.id)
+            const newIndex = dayTasks.findIndex(t => t.id === over.id)
+
+            if (oldIndex !== -1 && newIndex !== -1) {
+                const newDayTasks = arrayMove(dayTasks, oldIndex, newIndex)
+                const updatedMap = new Map(weekTasks)
+                updatedMap.set(dateStr, newDayTasks)
+                setWeekTasks(updatedMap)
+
+                // Batch update sort orders
+                for (let i = 0; i < newDayTasks.length; i++) {
+                    await supabase
+                        .from('tasks')
+                        .update({ sort_order: i })
+                        .eq('id', newDayTasks[i].id)
+                }
+            }
+        }
+    }
+
+    // Flatten all tasks for finding active task during drag
+    const dataFlatten: Task[] = []
+    weekTasks.forEach(tasks => dataFlatten.push(...tasks))
 
     const weekDays = getDaysInWeek()
     const monthName = currentWeekStart.toLocaleDateString('tr-TR', { month: 'long', year: 'numeric' })
