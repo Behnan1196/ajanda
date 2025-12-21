@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { Project, getProjectTasks, createProjectTask } from '@/app/actions/projects'
 import GanttChart from './GanttChart'
 import TaskEditorModal from './TaskEditorModal'
+import { getTaskIcon } from '@/lib/utils/iconMapping'
 
 interface ProjectDetailsViewProps {
     project: Project
@@ -89,7 +90,7 @@ export default function ProjectDetailsView({ project, onBack }: ProjectDetailsVi
                     onClick={() => setEditingTask(task)}
                 >
                     <div className="w-8 h-8 rounded-xl bg-gray-50 flex items-center justify-center text-sm group-hover:bg-indigo-50 transition-colors">
-                        {task.task_types?.icon || (level > 0 ? '🔹' : '📝')}
+                        {getTaskIcon(task.task_types?.icon) || (level > 0 ? '🔹' : '📝')}
                     </div>
                     <div>
                         <h4 className="font-semibold text-gray-900 line-clamp-1">{task.title}</h4>

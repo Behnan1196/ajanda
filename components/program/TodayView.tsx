@@ -74,6 +74,7 @@ export default function TodayView({ userId, initialDate }: TodayViewProps) {
         )
       `)
             .eq('user_id', userId)
+            .is('project_id', null)
             .eq('due_date', dateString)
             .order('due_time', { ascending: true, nullsFirst: false })
 

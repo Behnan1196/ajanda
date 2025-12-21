@@ -311,13 +311,19 @@ export default function QuickTodoModal({ onClose, initialDate, onTaskAdded, edit
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
-                        <input
+                        <textarea
                             autoFocus
                             value={title}
                             onChange={e => setTitle(e.target.value)}
-                            className="w-full text-lg font-medium border-0 border-b-2 border-gray-100 focus:border-amber-400 focus:ring-0 px-0 py-2 placeholder:text-gray-300 transition-colors"
-                            placeholder="Ne yapacaksın?"
+                            onInput={(e) => {
+                                const target = e.target as HTMLTextAreaElement
+                                target.style.height = 'auto'
+                                target.style.height = target.scrollHeight + 'px'
+                            }}
+                            className="w-full text-lg font-medium border-0 border-b-2 border-gray-100 focus:border-amber-400 focus:ring-0 px-0 py-2 placeholder:text-gray-300 transition-colors resize-none overflow-hidden"
+                            placeholder="Ne yapacaksın? (Enter ile yeni satır)"
                             required
+                            rows={1}
                         />
                     </div>
 

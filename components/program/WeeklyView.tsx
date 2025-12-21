@@ -88,6 +88,7 @@ export default function WeeklyView({ userId, onDateSelect = () => { }, relations
         relationship:relationship_id (role_label)
       `)
             .eq('user_id', userId)
+            .is('project_id', null)
             .gte('due_date', startStr)
             .lte('due_date', endStr)
             .order('due_time', { ascending: true, nullsFirst: false })
