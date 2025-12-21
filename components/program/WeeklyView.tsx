@@ -8,7 +8,7 @@ import QuickTodoModal from './QuickTodoModal'
 import AddQuickTodoButton from './AddQuickTodoButton'
 import {
     DndContext,
-    closestCenter,
+    closestCorners,
     PointerSensor,
     TouchSensor,
     useSensor,
@@ -243,10 +243,12 @@ export default function WeeklyView({ userId, onDateSelect = () => { }, relations
         const overId = over.id as string
 
         // Find which container we are dropping into
-        let overContainer = overId
-        // If dropped over a task (IDs don't start with 202), find that task's container
-        if (!overContainer.startsWith('202')) {
-            const overTask = dataFlatten.find(t => t.id === overId)
+        let overContainer = over.data?.current?.sortable?.containerId || overId
+
+        // Ensure overContainer is a valid date string from our weekDays
+        if (typeof overContainer === 'string' && !overContainer.startsWith('202')) {
+            // Fallback for when dropping over a task that doesn't have containerId in data
+            const overTask = dataFlatten.find(t => t.id === overContainer)
             if (overTask?.due_date) {
                 overContainer = overTask.due_date
             }
@@ -256,9 +258,10 @@ export default function WeeklyView({ userId, onDateSelect = () => { }, relations
         if (!activeTask) return
 
         const activeDate = activeTask.due_date!
+        const targetDate = overContainer as string
 
         // 1. Cross-day move
-        if (activeDate !== overContainer && overContainer.startsWith('202')) {
+        if (activeDate !== targetDate && targetDate.startsWith('202')) {
             // Optimistic update local state
             const updatedMap = new Map(weekTasks)
             const oldDayTasks = [...(updatedMap.get(activeDate) || [])]
@@ -361,7 +364,11 @@ export default function WeeklyView({ userId, onDateSelect = () => { }, relations
             </div>
 
             {/* Week Grid */}
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <DndContext
+                sensors={sensors}
+                collisionDetection={closestCorners}
+                onDragEnd={handleDragEnd}
+            >
                 <div className="grid grid-cols-1 md:grid-cols-7 gap-4">
                     {weekDays.map((date) => {
                         const dateStr = toLocalISOString(date)
@@ -387,36 +394,55 @@ export default function WeeklyView({ userId, onDateSelect = () => { }, relations
                                     </button>
 
                                     {/* Tasks List */}
-                                    <SortableContext items={tasksForDay.map(t => t.id)} strategy={verticalListSortingStrategy}>
-                                        <div className="flex-1 space-y-2">
-                                            {tasksForDay.map((task) => (
-                                                <WeeklyTaskCard
-                                                    key={task.id}
-                                                    task={task}
-                                                    onEdit={() => handleTaskEdit(task)}
-                                                    onDelete={() => handleTaskDelete(task.id)}
-                                                    onComplete={() => handleTaskComplete(task.id)}
-                                                    onUncomplete={() => handleTaskUncomplete(task.id)}
-                                                />
-                                            ))}
-                                            {tasksForDay.length === 0 && (
-                                                <div className="text-center py-4 text-gray-300 text-xs italic">
-                                                    Boş
-                                                </div>
-                                            )}
-                                        </div>
-                                    </SortableContext>
+                                    <div className="flex-1">
+                                        <SortableContext
+                                            id={dateStr}
+                                            items={tasksForDay.map(t => t.id)}
+                                            strategy={verticalListSortingStrategy}
+                                        >
+                                            <div className="space-y-2 min-h-[50px]">
+                                                {tasksForDay.map((task) => (
+                                                    <WeeklyTaskCard
+                                                        key={task.id}
+                                                        task={task}
+                                                        onEdit={() => handleTaskEdit(task)}
+                                                        onDelete={() => handleTaskDelete(task.id)}
+                                                        onComplete={() => handleTaskComplete(task.id)}
+                                                        onUncomplete={() => handleTaskUncomplete(task.id)}
+                                                    />
+                                                ))}
+                                                {tasksForDay.length === 0 && (
+                                                    <div className="text-center py-4 text-gray-300 text-xs italic">
+                                                        Boş
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </SortableContext>
+                                    </div>
 
-                                    {/* Add Button */}
-                                    <button
-                                        onClick={() => {
-                                            setSelectedDate(date)
-                                            setShowTaskModal(true)
-                                        }}
-                                        className="mt-3 w-full py-1.5 border-2 border-dashed border-gray-200 rounded-lg text-xs font-medium text-gray-400 hover:border-indigo-300 hover:text-indigo-500 hover:bg-indigo-50/50 transition opacity-0 group-hover:opacity-100"
-                                    >
-                                        + Görev
-                                    </button>
+                                    {/* Add Buttons */}
+                                    <div className="mt-3 flex flex-col gap-1.5 transition-opacity">
+                                        <button
+                                            onClick={() => {
+                                                setSelectedDate(date)
+                                                setEditingTask(null)
+                                                setShowTaskModal(true)
+                                            }}
+                                            className="w-full py-1.5 border border-dashed border-gray-200 rounded-lg text-[10px] font-bold text-gray-400 hover:border-indigo-300 hover:text-indigo-600 hover:bg-white transition shadow-sm"
+                                        >
+                                            + YAPISAL GÖREV
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                setSelectedDate(date)
+                                                setEditingTask(null)
+                                                setShowQuickTodoModal(true)
+                                            }}
+                                            className="w-full py-1.5 border border-dashed border-gray-200 rounded-lg text-[10px] font-bold text-gray-400 hover:border-green-300 hover:text-green-600 hover:bg-white transition shadow-sm"
+                                        >
+                                            + HIZLI GÖREV
+                                        </button>
+                                    </div>
                                 </div>
                             </DroppableDay>
                         )
