@@ -37,9 +37,10 @@ export default function PWAHandler() {
 
             // We use .lte('due_time', ...) to catch notifications that might have been 
             // missed while the app was in the background/throttled.
+            // IMPORTANT: Also check metadata to avoid duplicates with server-side push
             const { data: tasks, error } = await supabase
                 .from('tasks')
-                .select('id, title, due_time')
+                .select('id, title, due_time, metadata')
                 .eq('user_id', user.id)
                 .eq('due_date', today)
                 .eq('is_completed', false)
@@ -52,12 +53,23 @@ export default function PWAHandler() {
             }
 
             if (tasks && tasks.length > 0) {
-                tasks.forEach(task => {
-                    if (!notifiedTasks.current.has(task.id)) {
-                        console.log('Triggering notification for task:', task.title)
-                        sendLocalNotification('Görev Zamanı!', task.title)
-                        notifiedTasks.current.add(task.id)
+                tasks.forEach(async task => {
+                    // Skip if already notified by server-side push OR client-side
+                    if (task.metadata?.notified_push === true || notifiedTasks.current.has(task.id)) {
+                        return
                     }
+
+                    console.log('Triggering notification for task:', task.title)
+                    sendLocalNotification('Görev Zamanı!', task.title)
+                    notifiedTasks.current.add(task.id)
+
+                    // Mark as notified in database to prevent server-side duplicate
+                    await supabase
+                        .from('tasks')
+                        .update({
+                            metadata: { ...task.metadata, notified_push: true }
+                        })
+                        .eq('id', task.id)
                 })
             }
         }

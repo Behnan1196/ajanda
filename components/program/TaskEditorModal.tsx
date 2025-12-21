@@ -27,32 +27,14 @@ export default function TaskEditorModal({ projectId, task, onClose, onUpdate }: 
             const { data: { user } } = await supabase.auth.getUser()
             if (!user) return
 
-            // Get user's role
-            const { data: profile } = await supabase
+            // Get all users for assignment (will add team filtering later)
+            const { data: users } = await supabase
                 .from('users')
-                .select('role')
-                .eq('id', user.id)
-                .single()
+                .select('id, name')
+                .order('name')
 
-            if (profile?.role === 'coach') {
-                // Coaches can assign to their students
-                const { data: students } = await supabase
-                    .from('user_relationships')
-                    .select(`
-                        student:student_id (
-                            id,
-                            name
-                        )
-                    `)
-                    .eq('coach_id', user.id)
-                    .eq('is_active', true)
-
-                if (students) {
-                    const userList = students
-                        .map((rel: any) => rel.student)
-                        .filter(Boolean)
-                    setAvailableUsers(userList)
-                }
+            if (users) {
+                setAvailableUsers(users)
             }
         }
         loadUsers()
