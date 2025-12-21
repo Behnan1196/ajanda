@@ -31,6 +31,8 @@ interface Task {
     due_date: string | null
     due_time: string | null
     is_completed: boolean
+    subject_id: string | null
+    topic_id: string | null
     task_types: {
         name: string
         slug: string
@@ -334,111 +336,103 @@ export default function WeeklyView({ userId, onDateSelect = () => { }, relations
             </div>
 
             {/* Week Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-7 gap-4">
-                {weekDays.map((date) => {
-                    const dateStr = toLocalISOString(date)
-                    const tasksForDay = weekTasks.get(dateStr) || []
-                    const isDayToday = isToday(date)
-                    const dayName = date.toLocaleDateString('tr-TR', { weekday: 'long' })
-                    const dayShort = date.toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' })
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                <div className="grid grid-cols-1 md:grid-cols-7 gap-4">
+                    {weekDays.map((date) => {
+                        const dateStr = toLocalISOString(date)
+                        const tasksForDay = weekTasks.get(dateStr) || []
+                        const isDayToday = isToday(date)
+                        const dayName = date.toLocaleDateString('tr-TR', { weekday: 'long' })
+                        const dayShort = date.toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' })
 
-                    return (
-                        <div key={dateStr} className={`group flex flex-col gap-2 min-h-[200px] rounded-xl p-2 border ${isDayToday ? 'bg-indigo-50 border-indigo-200' : 'bg-gray-50 border-gray-200'}`}>
-                            {/* Day Header */}
-                            <button
-                                onClick={() => onDateSelect(date)}
-                                className="text-left w-full hover:bg-black/5 rounded p-1 transition"
-                            >
-                                <div className={`text-xs font-semibold uppercase ${isDayToday ? 'text-indigo-700' : 'text-gray-500'}`}>
-                                    {dayName}
-                                </div>
-                                <div className={`text-sm font-bold ${isDayToday ? 'text-indigo-900' : 'text-gray-900'}`}>
-                                    {dayShort}
-                                </div>
-                            </button>
-
-                            {/* Add Task Button */}
-                            <div className="px-1">
-                                <button
-                                    onClick={() => {
-                                        setSelectedDate(date)
-                                        setShowTaskModal(true)
-                                    }}
-                                    className="w-full py-1 text-xs text-indigo-600 font-medium hover:bg-indigo-50 rounded border border-transparent hover:border-indigo-100 flex items-center justify-center gap-1 transition opacity-0 group-hover:opacity-100"
-                                >
-                                    <span>+</span> Ekle
-                                </button>
-                            </div>
-
-                            {/* Tasks List */}
-                            <div className="flex-1 space-y-2">
-                                {tasksForDay.map(task => (
-                                    // Minimal Task Card
-                                    <div
-                                        key={task.id}
-                                        className={`bg-white p-2 rounded-lg shadow-sm border border-gray-100 text-xs ${task.is_completed ? 'opacity-50' : ''}`}
+                        return (
+                            <DroppableDay key={dateStr} id={dateStr} isToday={isDayToday}>
+                                <div className="flex flex-col h-full">
+                                    {/* Day Header */}
+                                    <button
+                                        onClick={() => onDateSelect(date)}
+                                        className="text-left mb-2 transition hover:opacity-75"
                                     >
-                                        <div className="flex items-start justify-between gap-1">
-                                            <span className="font-medium truncate line-clamp-2">{task.title}</span>
-                                            {task.task_types.icon && <span className="text-base">{getTaskIcon(task.task_types.icon)}</span>}
+                                        <div className={`text-xs font-bold uppercase tracking-wider ${isDayToday ? 'text-indigo-600' : 'text-gray-500'}`}>
+                                            {dayName}
                                         </div>
-
-                                        {/* Assigner Badge */}
-                                        {task.relationship?.role_label && (
-                                            <div className="mt-1">
-                                                <span className="text-[10px] bg-indigo-50 text-indigo-700 px-1 py-0.5 rounded border border-indigo-100 inline-block font-medium">
-                                                    {task.relationship.role_label}
-                                                </span>
-                                            </div>
-                                        )}
-
-                                        {task.due_time && (
-                                            <div className="text-gray-500 mt-1 text-[10px]">
-                                                {task.due_time.substring(0, 5)}
-                                            </div>
-                                        )}
-                                        {/* Simple Checkbox for quick complete */}
-                                        <div className="mt-2 pt-2 border-t border-gray-50 flex justify-end">
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation()
-                                                    task.is_completed ? handleTaskUncomplete(task.id) : handleTaskComplete(task.id)
-                                                }}
-                                                className={`w-5 h-5 rounded-full border flex items-center justify-center transition ${task.is_completed
-                                                    ? 'bg-green-500 border-green-500 text-white'
-                                                    : 'border-gray-300 hover:border-gray-400'
-                                                    }`}
-                                            >
-                                                {task.is_completed && <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
-                                            </button>
+                                        <div className={`text-base font-extrabold ${isDayToday ? 'text-indigo-700' : 'text-gray-900'}`}>
+                                            {dayShort}
                                         </div>
-                                    </div>
-                                ))}
-                                {tasksForDay.length === 0 && (
-                                    <div className="text-center py-4 text-gray-300 text-xs italic">
-                                        Boş
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    )
-                })}
-            </div>
+                                    </button>
 
-            {/* Task Form Modal */}
+                                    {/* Tasks List */}
+                                    <SortableContext items={tasksForDay.map(t => t.id)} strategy={verticalListSortingStrategy}>
+                                        <div className="flex-1 space-y-2">
+                                            {tasksForDay.map((task) => (
+                                                <WeeklyTaskCard
+                                                    key={task.id}
+                                                    task={task}
+                                                    onEdit={() => handleTaskEdit(task)}
+                                                    onDelete={() => handleTaskDelete(task.id)}
+                                                    onComplete={() => handleTaskComplete(task.id)}
+                                                    onUncomplete={() => handleTaskUncomplete(task.id)}
+                                                />
+                                            ))}
+                                            {tasksForDay.length === 0 && (
+                                                <div className="text-center py-4 text-gray-300 text-xs italic">
+                                                    Boş
+                                                </div>
+                                            )}
+                                        </div>
+                                    </SortableContext>
+
+                                    {/* Add Button */}
+                                    <button
+                                        onClick={() => {
+                                            setSelectedDate(date)
+                                            setShowTaskModal(true)
+                                        }}
+                                        className="mt-3 w-full py-1.5 border-2 border-dashed border-gray-200 rounded-lg text-xs font-medium text-gray-400 hover:border-indigo-300 hover:text-indigo-500 hover:bg-indigo-50/50 transition opacity-0 group-hover:opacity-100"
+                                    >
+                                        + Görev
+                                    </button>
+                                </div>
+                            </DroppableDay>
+                        )
+                    })}
+                </div>
+            </DndContext>
+
             {showTaskModal && (
                 <TaskFormModal
                     userId={userId}
+                    editingTask={editingTask}
                     defaultDate={selectedDate}
-                    onClose={() => setShowTaskModal(false)}
-                    relationshipId={relationshipId} // Pass context
-                    onTaskSaved={() => {
+                    onClose={() => {
                         setShowTaskModal(false)
-                        loadWeekTasks()
+                        setEditingTask(null)
                     }}
+                    onTaskSaved={handleTaskSaved}
+                    relationshipId={relationshipId}
                 />
             )}
             <AddQuickTodoButton onTaskAdded={() => loadWeekTasks(true)} />
+        </div>
+    )
+}
+
+function DroppableDay({ id, children, isToday }: { id: string, children: React.ReactNode, isToday: boolean }) {
+    const { setNodeRef, isOver } = useDroppable({
+        id: id,
+    })
+
+    return (
+        <div
+            ref={setNodeRef}
+            className={`group flex flex-col gap-2 min-h-[200px] rounded-xl p-2 border transition-colors ${isOver
+                ? 'bg-indigo-100 border-indigo-400 ring-2 ring-indigo-200 shadow-inner'
+                : isToday
+                    ? 'bg-indigo-50 border-indigo-200 shadow-sm'
+                    : 'bg-gray-50 border-gray-200'
+                }`}
+        >
+            {children}
         </div>
     )
 }
