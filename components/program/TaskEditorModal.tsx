@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { updateProjectTask } from '@/app/actions/projects'
+import { createClient } from '@/lib/supabase/client'
 
 interface TaskEditorModalProps {
     projectId: string
@@ -16,7 +17,46 @@ export default function TaskEditorModal({ projectId, task, onClose, onUpdate }: 
     const [startDate, setStartDate] = useState(task.start_date ? task.start_date.split('T')[0] : '')
     const [endDate, setEndDate] = useState(task.end_date ? task.end_date.split('T')[0] : '')
     const [progress, setProgress] = useState(task.progress_percent || 0)
+    const [assignedTo, setAssignedTo] = useState(task.assigned_to || '')
     const [loading, setLoading] = useState(false)
+    const [availableUsers, setAvailableUsers] = useState<Array<{ id: string, name: string }>>([])
+
+    useEffect(() => {
+        async function loadUsers() {
+            const supabase = createClient()
+            const { data: { user } } = await supabase.auth.getUser()
+            if (!user) return
+
+            // Get user's role
+            const { data: profile } = await supabase
+                .from('users')
+                .select('role')
+                .eq('id', user.id)
+                .single()
+
+            if (profile?.role === 'coach') {
+                // Coaches can assign to their students
+                const { data: students } = await supabase
+                    .from('user_relationships')
+                    .select(`
+                        student:student_id (
+                            id,
+                            name
+                        )
+                    `)
+                    .eq('coach_id', user.id)
+                    .eq('is_active', true)
+
+                if (students) {
+                    const userList = students
+                        .map((rel: any) => rel.student)
+                        .filter(Boolean)
+                    setAvailableUsers(userList)
+                }
+            }
+        }
+        loadUsers()
+    }, [])
 
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -28,7 +68,8 @@ export default function TaskEditorModal({ projectId, task, onClose, onUpdate }: 
             start_date: startDate ? new Date(startDate).toISOString() : null,
             end_date: endDate ? new Date(endDate).toISOString() : null,
             progress_percent: Number(progress),
-            is_completed: Number(progress) === 100
+            is_completed: Number(progress) === 100,
+            assigned_to: assignedTo || null
         }
 
         const result = await updateProjectTask(projectId, task.id, updates)
@@ -110,6 +151,22 @@ export default function TaskEditorModal({ projectId, task, onClose, onUpdate }: 
                             className="w-full h-2 bg-gray-100 rounded-lg appearance-none cursor-pointer accent-indigo-600"
                         />
                     </div>
+
+                    {availableUsers.length > 0 && (
+                        <div>
+                            <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Atanan Kişi</label>
+                            <select
+                                value={assignedTo}
+                                onChange={(e) => setAssignedTo(e.target.value)}
+                                className="w-full p-3 bg-gray-50 rounded-xl border-0 focus:ring-2 focus:ring-indigo-500 text-sm"
+                            >
+                                <option value="">Atanmadı</option>
+                                {availableUsers.map(user => (
+                                    <option key={user.id} value={user.id}>{user.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
 
                     <div className="pt-4 flex gap-2">
                         <button
