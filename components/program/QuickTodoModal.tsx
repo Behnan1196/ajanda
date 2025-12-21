@@ -45,6 +45,15 @@ export default function QuickTodoModal({ onClose, initialDate, onTaskAdded, edit
         }
     }, [])
 
+    // Auto-resize textarea when title changes (especially for edit mode)
+    useEffect(() => {
+        const textarea = document.querySelector('textarea[placeholder*="Ne yapacaksın"]') as HTMLTextAreaElement
+        if (textarea && title) {
+            textarea.style.height = 'auto'
+            textarea.style.height = textarea.scrollHeight + 'px'
+        }
+    }, [title])
+
     useEffect(() => {
         if (showFullImage) {
             document.body.style.overflow = 'hidden'
