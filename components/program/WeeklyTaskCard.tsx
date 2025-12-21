@@ -9,6 +9,7 @@ interface WeeklyTaskCardProps {
     onDelete: () => void
     onComplete: () => void
     onUncomplete: () => void
+    isOverlay?: boolean
 }
 
 export default function WeeklyTaskCard({
@@ -16,7 +17,8 @@ export default function WeeklyTaskCard({
     onEdit,
     onDelete,
     onComplete,
-    onUncomplete
+    onUncomplete,
+    isOverlay = false
 }: WeeklyTaskCardProps) {
     const [showMenu, setShowMenu] = useState(false)
 
@@ -32,7 +34,8 @@ export default function WeeklyTaskCard({
     const style = {
         transform: CSS.Transform.toString(transform),
         transition,
-        opacity: isDragging ? 0.5 : 1,
+        opacity: isDragging ? 0 : 1,
+        zIndex: isOverlay ? 1000 : undefined,
     }
 
     const getTaskIcon = () => {
@@ -52,9 +55,9 @@ export default function WeeklyTaskCard({
 
     return (
         <div
-            ref={setNodeRef}
-            style={style}
-            className={`relative bg-white rounded-lg p-3 shadow-sm border border-gray-200 hover:shadow-md transition group ${task.is_completed ? 'opacity-60' : ''
+            ref={isOverlay ? undefined : setNodeRef}
+            style={isOverlay ? undefined : style}
+            className={`relative bg-white rounded-lg p-3 shadow-sm border border-gray-200 hover:shadow-md transition group ${task.is_completed ? 'opacity-60' : ''} ${isOverlay ? 'shadow-xl ring-2 ring-indigo-400 rotate-2 cursor-grabbing' : ''
                 }`}
         >
             {/* Drag Handle */}
@@ -120,8 +123,8 @@ export default function WeeklyTaskCard({
                         task.is_completed ? onUncomplete() : onComplete()
                     }}
                     className={`w-6 h-6 rounded-full border flex items-center justify-center transition-all ${task.is_completed
-                            ? 'bg-green-500 border-green-500 text-white'
-                            : 'border-gray-300 text-transparent hover:border-green-500 hover:text-green-500'
+                        ? 'bg-green-500 border-green-500 text-white'
+                        : 'border-gray-300 text-transparent hover:border-green-500 hover:text-green-500'
                         }`}
                 >
                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
