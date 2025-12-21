@@ -240,57 +240,74 @@ export default function WeeklyView({ userId, onDateSelect = () => { }, relations
         if (!over) return
 
         const taskId = active.id as string
-        const activeContainer = active.data.current?.sortable?.containerId || (active as any).id
-        const overContainer = over.id as string
+        const overId = over.id as string
 
-        // task.due_date is our container strategy here
-        // We need to know if it's the same day or different day
+        // Find which container we are dropping into
+        let overContainer = overId
+        // If dropped over a task (IDs don't start with 202), find that task's container
+        if (!overContainer.startsWith('202')) {
+            const overTask = dataFlatten.find(t => t.id === overId)
+            if (overTask?.due_date) {
+                overContainer = overTask.due_date
+            }
+        }
 
         const activeTask = dataFlatten.find(t => t.id === taskId)
         if (!activeTask) return
 
+        const activeDate = activeTask.due_date!
+
         // 1. Cross-day move
-        if (activeTask.due_date !== overContainer && overContainer.startsWith('202')) {
+        if (activeDate !== overContainer && overContainer.startsWith('202')) {
             // Optimistic update local state
             const updatedMap = new Map(weekTasks)
-            const oldDayTasks = [...(updatedMap.get(activeTask.due_date!) || [])]
+            const oldDayTasks = [...(updatedMap.get(activeDate) || [])]
             const newDayTasks = [...(updatedMap.get(overContainer) || [])]
 
-            const taskToMove = oldDayTasks.find(t => t.id === taskId)
-            if (taskToMove) {
-                const filteredOld = oldDayTasks.filter(t => t.id !== taskId)
-                updatedMap.set(activeTask.due_date!, filteredOld)
+            const taskToMoveIndex = oldDayTasks.findIndex(t => t.id === taskId)
+            if (taskToMoveIndex !== -1) {
+                const [taskToMove] = oldDayTasks.splice(taskToMoveIndex, 1)
+                updatedMap.set(activeDate, oldDayTasks)
+
+                // If dropped over a specific task in the new day, insert it there
+                let insertIndex = newDayTasks.length
+                if (!overId.startsWith('202')) {
+                    insertIndex = newDayTasks.findIndex(t => t.id === overId)
+                    if (insertIndex === -1) insertIndex = newDayTasks.length
+                }
 
                 const movedTask = { ...taskToMove, due_date: overContainer }
-                newDayTasks.push(movedTask)
+                newDayTasks.splice(insertIndex, 0, movedTask)
                 updatedMap.set(overContainer, newDayTasks)
                 setWeekTasks(updatedMap)
 
                 // Update database
-                // Get next sort order for new day
-                const nextSortOrder = newDayTasks.length
                 await supabase
                     .from('tasks')
-                    .update({
-                        due_date: overContainer,
-                        sort_order: nextSortOrder
-                    })
+                    .update({ due_date: overContainer })
                     .eq('id', taskId)
+
+                // Re-sort and update all items in target container
+                for (let i = 0; i < newDayTasks.length; i++) {
+                    await supabase
+                        .from('tasks')
+                        .update({ sort_order: i })
+                        .eq('id', newDayTasks[i].id)
+                }
 
                 loadWeekTasks(true)
             }
         }
         // 2. Same day reorder
         else if (active.id !== over.id) {
-            const dateStr = activeTask.due_date!
-            const dayTasks = [...(weekTasks.get(dateStr) || [])]
+            const dayTasks = [...(weekTasks.get(activeDate) || [])]
             const oldIndex = dayTasks.findIndex(t => t.id === active.id)
             const newIndex = dayTasks.findIndex(t => t.id === over.id)
 
             if (oldIndex !== -1 && newIndex !== -1) {
                 const newDayTasks = arrayMove(dayTasks, oldIndex, newIndex)
                 const updatedMap = new Map(weekTasks)
-                updatedMap.set(dateStr, newDayTasks)
+                updatedMap.set(activeDate, newDayTasks)
                 setWeekTasks(updatedMap)
 
                 // Batch update sort orders
