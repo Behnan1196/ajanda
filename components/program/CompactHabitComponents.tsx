@@ -44,10 +44,12 @@ export function CompactHabitRow({
     } = useSortable({ id: habit.id })
 
     const style = {
-        transform: CSS.Transform.toString(transform),
+        transform: CSS.Translate.toString(transform),
         transition,
-        opacity: isDragging ? 0.5 : 1,
-        backgroundColor: `${habit.color}15`, // Use habit color for row background (pastel)
+        opacity: isDragging ? 0.3 : 1,
+        backgroundColor: isDragging ? '#f3f4f6' : `${habit.color}15`,
+        zIndex: isDragging ? 50 : undefined,
+        position: isDragging ? 'relative' as const : undefined,
     }
 
     useEffect(() => {
@@ -105,6 +107,7 @@ export function CompactHabitRow({
                 <div
                     {...attributes}
                     {...listeners}
+                    style={{ touchAction: 'none' }}
                     className="flex items-center gap-2 pl-1 cursor-grab active:cursor-grabbing hover:bg-black/5 rounded px-1 -ml-1 transition-colors select-none"
                     title="Sıralamak için sürükleyin"
                 >

@@ -41,7 +41,7 @@ export default function TaskMenu({ taskId, isCompleted, onEdit, onDelete, onUnco
                     />
 
                     {/* Menu */}
-                    <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-20">
+                    <div className="absolute left-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-20">
                         {isCompleted && onUncomplete && (
                             <button
                                 onClick={() => {

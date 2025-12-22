@@ -10,6 +10,8 @@ import {
     useSensor,
     useSensors,
     DragEndEvent,
+    DragStartEvent,
+    DragOverlay,
 } from '@dnd-kit/core'
 import {
     SortableContext,
@@ -38,6 +40,7 @@ export default function CompactHabitGrid({ userId, onEdit }: CompactHabitGridPro
     const [completions, setCompletions] = useState<Map<string, Set<string>>>(new Map())
     const [weekStart, setWeekStart] = useState<Date>(getMonday(new Date()))
     const [loading, setLoading] = useState(true)
+    const [activeId, setActiveId] = useState<string | null>(null)
     const supabase = createClient()
 
     const sensors = useSensors(
@@ -123,7 +126,12 @@ export default function CompactHabitGrid({ userId, onEdit }: CompactHabitGridPro
         loadHabits()
     }
 
+    const handleDragStart = (event: DragStartEvent) => {
+        setActiveId(event.active.id as string)
+    }
+
     const handleDragEnd = async (event: DragEndEvent) => {
+        setActiveId(null)
         const { active, over } = event
         if (!over || active.id === over.id) return
         const oldIndex = habits.findIndex(h => h.id === active.id)
@@ -156,7 +164,12 @@ export default function CompactHabitGrid({ userId, onEdit }: CompactHabitGridPro
                 </button>
             </div>
 
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragStart={handleDragStart}
+                onDragEnd={handleDragEnd}
+            >
                 <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
                     <table className="w-full text-xs">
                         <thead>
@@ -191,6 +204,23 @@ export default function CompactHabitGrid({ userId, onEdit }: CompactHabitGridPro
                         </tbody>
                     </table>
                 </div>
+                <DragOverlay>
+                    {activeId ? (
+                        <table className="w-full text-xs opacity-80 backdrop-blur-sm">
+                            <tbody>
+                                <CompactHabitRow
+                                    habit={habits.find(h => h.id === activeId)!}
+                                    weekDates={weekDates}
+                                    isCompleted={isCompleted}
+                                    isToday={isToday}
+                                    toggleCompletion={() => { }}
+                                    onEdit={() => { }}
+                                    onDelete={() => { }}
+                                />
+                            </tbody>
+                        </table>
+                    ) : null}
+                </DragOverlay>
             </DndContext>
         </div>
     )
