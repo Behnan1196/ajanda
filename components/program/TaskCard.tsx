@@ -30,9 +30,19 @@ interface TaskCardProps {
     onUncomplete: () => void
     onEdit: () => void
     onDelete: () => void
+    dragAttributes?: any
+    dragListeners?: any
 }
 
-export default function TaskCard({ task, onComplete, onUncomplete, onEdit, onDelete }: TaskCardProps) {
+export default function TaskCard({
+    task,
+    onComplete,
+    onUncomplete,
+    onEdit,
+    onDelete,
+    dragAttributes,
+    dragListeners
+}: TaskCardProps) {
     const { task_types, title, description, metadata, due_time, is_completed } = task
 
     const getIcon = () => {
@@ -57,8 +67,23 @@ export default function TaskCard({ task, onComplete, onUncomplete, onEdit, onDel
     return (
         <div className={`bg-white rounded-xl p-4 shadow-sm border border-gray-200 transition ${is_completed ? 'opacity-60' : ''}`}>
             <div className="flex items-start gap-3">
-                <div className={`mt-0.5 ${task_types.slug === 'video' ? 'text-red-600' : 'text-indigo-600'}`}>
-                    {getIcon()}
+                {/* Left Side: Menu + Icon Handle */}
+                <div className="flex items-center gap-1 mt-0.5 shrink-0">
+                    <TaskMenu
+                        taskId={task.id}
+                        isCompleted={is_completed}
+                        onEdit={onEdit}
+                        onDelete={onDelete}
+                        onUncomplete={onUncomplete}
+                    />
+                    <div
+                        {...dragAttributes}
+                        {...dragListeners}
+                        className={`cursor-grab active:cursor-grabbing p-1 -m-1 rounded hover:bg-gray-50 transition-colors ${task_types.slug === 'video' ? 'text-red-600' : 'text-indigo-600'}`}
+                        title="Sıralamak için sürükleyin"
+                    >
+                        {getIcon()}
+                    </div>
                 </div>
 
                 <div className="flex-1 min-w-0">
@@ -124,12 +149,12 @@ export default function TaskCard({ task, onComplete, onUncomplete, onEdit, onDel
                     </div>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center shrink-0">
                     <button
                         onClick={is_completed ? onUncomplete : onComplete}
                         className={`w-6 h-6 rounded-full border flex items-center justify-center transition-colors ${is_completed
-                                ? 'bg-green-500 border-green-500 text-white'
-                                : 'border-gray-300 hover:border-gray-400'
+                            ? 'bg-green-500 border-green-500 text-white'
+                            : 'border-gray-300 hover:border-gray-400'
                             }`}
                     >
                         {is_completed && (
@@ -138,14 +163,6 @@ export default function TaskCard({ task, onComplete, onUncomplete, onEdit, onDel
                             </svg>
                         )}
                     </button>
-
-                    <TaskMenu
-                        taskId={task.id}
-                        isCompleted={is_completed}
-                        onEdit={onEdit}
-                        onDelete={onDelete}
-                        onUncomplete={onUncomplete}
-                    />
                 </div>
             </div>
         </div>

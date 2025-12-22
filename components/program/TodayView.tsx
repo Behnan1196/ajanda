@@ -279,31 +279,40 @@ export default function TodayView({ userId, initialDate }: TodayViewProps) {
     return (
         <div className="relative">
             {/* Tarih Navigasyonu */}
-            <div className="mb-4">
-                <div className="flex items-center justify-between mb-2">
+            <div className="mb-6">
+                <div className="flex items-center justify-between bg-white p-3 px-4 rounded-xl border border-gray-100 shadow-sm">
                     <button
                         onClick={goToPreviousDay}
-                        className="p-2 hover:bg-gray-100 rounded-lg transition"
+                        className="p-2 hover:bg-gray-100 rounded-lg transition text-gray-400 hover:text-indigo-600"
                         aria-label="Önceki gün"
                     >
-                        <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                         </svg>
                     </button>
 
-                    <div className="text-center flex-1">
-                        <h2 className="text-lg font-semibold text-gray-900 capitalize">
-                            {dayName}
-                        </h2>
-                        <p className="text-sm text-gray-600">{formattedDate}</p>
+                    <div className="flex items-center gap-2 flex-1 justify-center overflow-hidden px-2">
+                        <div className="flex items-center gap-2 truncate">
+                            <span className="text-[15px] font-bold text-gray-900 capitalize whitespace-nowrap">
+                                {dayName}
+                            </span>
+                            <span className="text-[13px] text-gray-400 font-medium whitespace-nowrap">
+                                {formattedDate}
+                            </span>
+                        </div>
+                        {tasks.length > 0 && (
+                            <span className="bg-indigo-50 text-indigo-600 text-[11px] font-bold px-2 py-0.5 rounded-full border border-indigo-100 flex-shrink-0">
+                                {tasks.length}
+                            </span>
+                        )}
                     </div>
 
                     <button
                         onClick={goToNextDay}
-                        className="p-2 hover:bg-gray-100 rounded-lg transition"
+                        className="p-2 hover:bg-gray-100 rounded-lg transition text-gray-400 hover:text-indigo-600"
                         aria-label="Sonraki gün"
                     >
-                        <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                         </svg>
                     </button>
@@ -311,21 +320,15 @@ export default function TodayView({ userId, initialDate }: TodayViewProps) {
 
                 {/* Bugüne Dön Butonu */}
                 {!isToday() && (
-                    <div className="flex justify-center">
+                    <div className="flex justify-center mt-3">
                         <button
                             onClick={goToToday}
-                            className="px-4 py-1.5 text-sm bg-indigo-50 text-indigo-600 rounded-full hover:bg-indigo-100 transition font-medium"
+                            className="px-4 py-1 text-xs bg-indigo-50 text-indigo-600 rounded-full hover:bg-indigo-100 transition font-semibold border border-indigo-100"
                         >
-                            Bugüne Dön
+                            📅 Bugüne Dön
                         </button>
                     </div>
                 )}
-
-                <div className="text-center mt-2">
-                    <p className="text-sm text-gray-600">
-                        {tasks.length === 0 ? 'Bu gün için görev yok' : `${tasks.length} görev`}
-                    </p>
-                </div>
             </div>
 
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>

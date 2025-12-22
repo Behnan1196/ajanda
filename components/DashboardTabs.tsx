@@ -138,7 +138,7 @@ export default function DashboardTabs({ user }: DashboardTabsProps) {
                                     : 'text-gray-600 hover:bg-gray-50'
                                     }`}
                             >
-                                Bugün
+                                Günlük
                             </button>
                             <button
                                 onClick={() => setActiveProgramTab('haftalik')}
