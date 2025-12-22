@@ -258,6 +258,6 @@ export default function DashboardTabs({ user }: DashboardTabsProps) {
                     </button>
                 </div>
             </nav>
-        </div>
+        </div >
     )
 }

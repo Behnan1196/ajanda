@@ -54,8 +54,7 @@ export default function HabitFormModal({
     const [targetType, setTargetType] = useState(editingHabit?.target_type || 'boolean')
     const [targetCount, setTargetCount] = useState(editingHabit?.target_count || 1)
     const [targetDuration, setTargetDuration] = useState(editingHabit?.target_duration || 30)
-    const [color, setColor] = useState(editingHabit?.color || '#10B981')
-    const [icon, setIcon] = useState(editingHabit?.icon || '⭐')
+    const [color, setColor] = useState(editingHabit?.color || '#3B82F6')
     const [loading, setLoading] = useState(false)
     const supabase = createClient()
 
@@ -63,12 +62,12 @@ export default function HabitFormModal({
 
     const iconOptions = ['⭐', '🏃', '💧', '🧘', '📚', '🎯', '💪', '🌱', '🎨', '☀️', '🌙', '🔥']
     const colorOptions = [
-        '#10B981', // Green
         '#3B82F6', // Blue
-        '#8B5CF6', // Purple
+        '#10B981', // Green
         '#F59E0B', // Amber
-        '#EF4444', // Red
+        '#8B5CF6', // Purple
         '#EC4899', // Pink
+        '#6B7280', // Gray
     ]
 
     useEffect(() => {
@@ -76,20 +75,7 @@ export default function HabitFormModal({
     }, [])
 
     const loadData = async () => {
-        const { data: subjectsData } = await supabase
-            .from('subjects')
-            .select('id, name, icon')
-            .eq('is_active', true)
-            .order('name')
-
-        const { data: topicsData } = await supabase
-            .from('topics')
-            .select('id, subject_id, name')
-            .eq('is_active', true)
-            .order('name')
-
-        if (subjectsData) setSubjects(subjectsData)
-        if (topicsData) setTopics(topicsData)
+        // Subjects and Topics loading removed as per minimalist design
     }
 
     const filteredTopics = topics.filter((t) => t.subject_id === subjectId)
@@ -109,7 +95,7 @@ export default function HabitFormModal({
             target_count: targetType === 'count' ? targetCount : null,
             target_duration: targetType === 'duration' ? targetDuration : null,
             color,
-            icon,
+            icon: '⭐', // Default star icon (not used in minimalist UI)
         }
 
         if (isEditMode) {
@@ -168,27 +154,6 @@ export default function HabitFormModal({
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
-                    {/* Icon Selection */}
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            İkon
-                        </label>
-                        <div className="grid grid-cols-6 gap-2">
-                            {iconOptions.map((iconOption) => (
-                                <button
-                                    key={iconOption}
-                                    type="button"
-                                    onClick={() => setIcon(iconOption)}
-                                    className={`text-2xl p-3 rounded-lg border-2 transition ${icon === iconOption
-                                        ? 'border-indigo-600 bg-indigo-50'
-                                        : 'border-gray-200 hover:border-gray-300'
-                                        }`}
-                                >
-                                    {iconOption}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
 
                     {/* Color Selection */}
                     <div>
@@ -238,48 +203,7 @@ export default function HabitFormModal({
                         />
                     </div>
 
-                    {/* Subject */}
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                            Ana Konu (Opsiyonel)
-                        </label>
-                        <select
-                            value={subjectId}
-                            onChange={(e) => {
-                                setSubjectId(e.target.value)
-                                setTopicId('')
-                            }}
-                            className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                        >
-                            <option value="">Seçiniz...</option>
-                            {subjects.map((subject) => (
-                                <option key={subject.id} value={subject.id}>
-                                    {subject.icon} {subject.name}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-
-                    {/* Topic */}
-                    {subjectId && (
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Alt Konu (Opsiyonel)
-                            </label>
-                            <select
-                                value={topicId}
-                                onChange={(e) => setTopicId(e.target.value)}
-                                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                            >
-                                <option value="">Seçiniz...</option>
-                                {filteredTopics.map((topic) => (
-                                    <option key={topic.id} value={topic.id}>
-                                        {topic.name}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-                    )}
+                    {/* Subject/Topic selections removed */}
 
                     {/* Frequency */}
                     <div>

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import WeeklyHabitGrid from './WeeklyHabitGrid'
+import CompactHabitGrid from './CompactHabitGrid'
 import AddHabitButton from './AddHabitButton'
 import HabitFormModal from './HabitFormModal'
 
@@ -11,12 +11,24 @@ interface HabitsViewProps {
 
 export default function HabitsView({ userId }: HabitsViewProps) {
     const [showModal, setShowModal] = useState(false)
-    const [gridKey, setGridKey] = useState(0) // Key to force grid refresh
+    const [editingHabit, setEditingHabit] = useState<any>(null)
+    const [gridKey, setGridKey] = useState(0)
+
+    const handleEdit = (habit: any) => {
+        setEditingHabit(habit)
+        setShowModal(true)
+    }
+
+    const handleSaved = () => {
+        setShowModal(false)
+        setEditingHabit(null)
+        setGridKey(prev => prev + 1)
+    }
 
     return (
         <div className="space-y-4">
             {/* Header */}
-            <div className="flex items-center justify-between pt-4">
+            <div className="flex items-center justify-between pt-4 px-1">
                 <div>
                     <h2 className="text-lg font-semibold text-gray-900">Alışkanlıklarım</h2>
                     <p className="text-sm text-gray-600 mt-1">
@@ -25,22 +37,29 @@ export default function HabitsView({ userId }: HabitsViewProps) {
                 </div>
             </div>
 
-            {/* Weekly Grid */}
-            <WeeklyHabitGrid key={gridKey} userId={userId} />
+            {/* Compact Grid */}
+            <CompactHabitGrid
+                key={gridKey}
+                userId={userId}
+                onEdit={handleEdit}
+            />
 
-            {/* Add Button (FAB) */}
-            <AddHabitButton onClick={() => setShowModal(true)} />
+            {/* Add Button */}
+            <AddHabitButton onClick={() => {
+                setEditingHabit(null)
+                setShowModal(true)
+            }} />
 
             {/* Modal */}
             {showModal && (
                 <HabitFormModal
                     userId={userId}
-                    editingHabit={null}
-                    onClose={() => setShowModal(false)}
-                    onSaved={() => {
+                    editingHabit={editingHabit}
+                    onClose={() => {
                         setShowModal(false)
-                        setGridKey(prev => prev + 1) // Refresh grid without page reload
+                        setEditingHabit(null)
                     }}
+                    onSaved={handleSaved}
                 />
             )}
         </div>
