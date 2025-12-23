@@ -101,6 +101,21 @@ export default function ProjectDetailsView({ project, onBack }: ProjectDetailsVi
                 </div>
                 <div className="flex items-center gap-3">
                     <div className="flex items-center gap-2">
+                        {task.dependency_ids && task.dependency_ids.length > 0 && (
+                            <span className="text-[10px] bg-amber-50 text-amber-600 px-2 py-0.5 rounded-full border border-amber-100 flex items-center gap-1" title="Bu görev başka görevlere bağlı">
+                                🔗 Bağımlı
+                            </span>
+                        )}
+                        {!task.start_date && (
+                            <span className="text-[10px] bg-red-50 text-red-600 px-2 py-0.5 rounded-full border border-red-100 font-bold">
+                                ⏳ Tarihsiz
+                            </span>
+                        )}
+                        {task.start_date && task.end_date && (
+                            <span className="text-[10px] bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded-full border border-indigo-100 font-bold whitespace-nowrap">
+                                {Math.round(Math.abs(new Date(task.end_date).getTime() - new Date(task.start_date).getTime()) / (1000 * 60 * 60 * 24)) + 1} Gün
+                            </span>
+                        )}
                         {task.progress_percent > 0 && (
                             <span className="text-[10px] text-indigo-600 font-bold whitespace-nowrap">
                                 %{task.progress_percent}
@@ -246,7 +261,11 @@ export default function ProjectDetailsView({ project, onBack }: ProjectDetailsVi
                     )}
                 </div>
             ) : (
-                <GanttChart tasks={flattenedTasks} />
+                <GanttChart
+                    projectId={project.id}
+                    tasks={flattenedTasks}
+                    onUpdate={loadTasks}
+                />
             )}
 
             {/* Editing Modal */}

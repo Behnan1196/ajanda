@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { updateProjectTask } from '@/app/actions/projects'
+import { updateProjectTask, getProjectTasks } from '@/app/actions/projects'
 import { createClient } from '@/lib/supabase/client'
 
 interface TaskEditorModalProps {
@@ -18,27 +18,65 @@ export default function TaskEditorModal({ projectId, task, onClose, onUpdate }: 
     const [endDate, setEndDate] = useState(task.end_date ? task.end_date.split('T')[0] : '')
     const [progress, setProgress] = useState(task.progress_percent || 0)
     const [assignedTo, setAssignedTo] = useState(task.assigned_to || '')
+    const [dependencyIds, setDependencyIds] = useState<string[]>(task.dependency_ids || [])
+    const [duration, setDuration] = useState(0)
     const [loading, setLoading] = useState(false)
     const [availableUsers, setAvailableUsers] = useState<Array<{ id: string, name: string }>>([])
+    const [allProjectTasks, setAllProjectTasks] = useState<any[]>([])
+
+    // Helper to get local date string YYYY-MM-DD
+    const toLocalISOString = (date: Date) => {
+        const offset = date.getTimezoneOffset()
+        const adjusted = new Date(date.getTime() - (offset * 60 * 1000))
+        return adjusted.toISOString().split('T')[0]
+    }
 
     useEffect(() => {
-        async function loadUsers() {
+        if (startDate && endDate) {
+            const start = new Date(startDate)
+            const end = new Date(endDate)
+            start.setHours(0, 0, 0, 0)
+            end.setHours(0, 0, 0, 0)
+            const diffTime = Math.abs(end.getTime() - start.getTime())
+            const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24))
+            setDuration(diffDays + 1)
+        } else {
+            setDuration(0)
+        }
+    }, [startDate, endDate])
+
+    const handleDurationChange = (val: string) => {
+        const d = parseInt(val) || 0
+        setDuration(d)
+        if (startDate && d > 0) {
+            const start = new Date(startDate)
+            const end = new Date(start)
+            end.setDate(start.getDate() + d - 1) // Inclusive: start=22, duration=3 => end=24
+            setEndDate(toLocalISOString(end))
+        }
+    }
+
+    useEffect(() => {
+        async function loadData() {
+            setLoading(true)
             const supabase = createClient()
             const { data: { user } } = await supabase.auth.getUser()
-            if (!user) return
 
-            // Get all users for assignment (will add team filtering later)
-            const { data: users } = await supabase
-                .from('users')
-                .select('id, name')
-                .order('name')
+            // Parallel load users and tasks
+            const [usersRes, tasksRes] = await Promise.all([
+                supabase.from('users').select('id, name').order('name'),
+                getProjectTasks(projectId)
+            ])
 
-            if (users) {
-                setAvailableUsers(users)
+            if (usersRes.data) setAvailableUsers(usersRes.data)
+            if (tasksRes.data) {
+                // Filter out current task to prevent circular dependency on self
+                setAllProjectTasks(tasksRes.data.filter((t: any) => t.id !== task.id))
             }
+            setLoading(false)
         }
-        loadUsers()
-    }, [])
+        loadData()
+    }, [projectId, task.id])
 
     const handleSave = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -51,7 +89,8 @@ export default function TaskEditorModal({ projectId, task, onClose, onUpdate }: 
             end_date: endDate ? new Date(endDate).toISOString() : null,
             progress_percent: Number(progress),
             is_completed: Number(progress) === 100,
-            assigned_to: assignedTo || null
+            assigned_to: assignedTo || null,
+            dependency_ids: dependencyIds.length > 0 ? dependencyIds : null
         }
 
         const result = await updateProjectTask(projectId, task.id, updates)
@@ -119,6 +158,18 @@ export default function TaskEditorModal({ projectId, task, onClose, onUpdate }: 
                     </div>
 
                     <div>
+                        <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Süre (Gün)</label>
+                        <input
+                            type="number"
+                            min="1"
+                            value={duration}
+                            onChange={(e) => handleDurationChange(e.target.value)}
+                            className="w-full p-3 bg-gray-50 rounded-xl border-0 focus:ring-2 focus:ring-indigo-500 text-sm"
+                            placeholder="Örn: 5"
+                        />
+                    </div>
+
+                    <div>
                         <div className="flex items-center justify-between mb-2">
                             <label className="block text-xs font-bold text-gray-400 uppercase">İlerleme</label>
                             <span className="text-sm font-bold text-indigo-600">%{progress}</span>
@@ -149,6 +200,32 @@ export default function TaskEditorModal({ projectId, task, onClose, onUpdate }: 
                             </select>
                         </div>
                     )}
+
+                    <div>
+                        <label className="block text-xs font-bold text-gray-400 uppercase mb-2">Öncül Görevler (Bağımlılıklar)</label>
+                        <div className="space-y-2 max-h-32 overflow-y-auto p-2 bg-gray-50 rounded-xl">
+                            {allProjectTasks.map(t => (
+                                <label key={t.id} className="flex items-center gap-2 cursor-pointer hover:bg-white p-1 rounded transition-colors">
+                                    <input
+                                        type="checkbox"
+                                        checked={dependencyIds.includes(t.id)}
+                                        onChange={(e) => {
+                                            if (e.target.checked) {
+                                                setDependencyIds([...dependencyIds, t.id])
+                                            } else {
+                                                setDependencyIds(dependencyIds.filter(id => id !== t.id))
+                                            }
+                                        }}
+                                        className="rounded text-indigo-600 focus:ring-indigo-500"
+                                    />
+                                    <span className="text-xs text-gray-700 truncate">{t.title}</span>
+                                </label>
+                            ))}
+                            {allProjectTasks.length === 0 && (
+                                <p className="text-[10px] text-gray-400 text-center py-2">Eklenebilecek başka görev yok.</p>
+                            )}
+                        </div>
+                    </div>
 
                     <div className="pt-4 flex gap-2">
                         <button
