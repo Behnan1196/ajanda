@@ -1,4 +1,5 @@
 import TaskMenu from './TaskMenu'
+import YouTubePreview from '../ui/YouTubePreview'
 
 interface TaskCardProps {
     task: {
@@ -34,6 +35,14 @@ interface TaskCardProps {
     dragListeners?: any
 }
 
+// Helper to find YouTube URL in text
+const findYouTubeUrl = (text: string | null | undefined) => {
+    if (!text) return null
+    const regExp = /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:[^\/\n\s]+\/\S+\/|(?:v|e(?:mbed)?)\/|\S*?[?&]v=)|youtu\.be\/)([a-zA-Z0-9_-]{11})/
+    const match = text.match(regExp)
+    return match ? match[0] : null
+}
+
 export default function TaskCard({
     task,
     onComplete,
@@ -44,6 +53,9 @@ export default function TaskCard({
     dragListeners
 }: TaskCardProps) {
     const { task_types, title, description, metadata, due_time, is_completed } = task
+
+    // Determine video URL source order: metadata.video_url > description > notes
+    const videoUrl = metadata.video_url || findYouTubeUrl(description) || findYouTubeUrl(metadata.notes)
 
     const getIcon = () => {
         switch (task_types.slug) {
@@ -124,7 +136,8 @@ export default function TaskCard({
                     )}
 
                     <div className="flex items-center gap-3 text-sm text-gray-500">
-                        {metadata.video_url && (
+                        {!videoUrl && metadata.video_url && (
+                            /* Fallback link if preview logic somehow fails but url exists (unlikely given logic above) */
                             <a
                                 href={metadata.video_url}
                                 target="_blank"
@@ -147,6 +160,11 @@ export default function TaskCard({
                             </span>
                         )}
                     </div>
+
+                    {/* YouTube Preview */}
+                    {videoUrl && (
+                        <YouTubePreview url={videoUrl} />
+                    )}
                 </div>
 
                 <div className="flex items-center shrink-0">

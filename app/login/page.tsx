@@ -72,6 +72,25 @@ export default function LoginPage() {
                         />
                     </div>
 
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center">
+                            <input
+                                id="remember-me"
+                                type="checkbox"
+                                defaultChecked
+                                className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded transition"
+                            />
+                            <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-900">
+                                Beni Hatırla
+                            </label>
+                        </div>
+                        <div className="text-sm">
+                            <a href="#" className="font-medium text-indigo-600 hover:text-indigo-500">
+                                Şifremi unuttum?
+                            </a>
+                        </div>
+                    </div>
+
                     {error && (
                         <div className="bg-red-50 text-red-600 px-4 py-3 rounded-lg text-sm">
                             {error}

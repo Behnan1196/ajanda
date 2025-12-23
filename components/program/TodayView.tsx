@@ -136,31 +136,8 @@ export default function TodayView({ userId, initialDate }: TodayViewProps) {
             // 1. Quick Todos (is_private) that are completed (is_completed) go to BOTTOM (Lowest priority)
             // 2. Everything else keeps its order (based on DB sort due_time)
 
-            const sortedData = (data as Task[]).sort((a, b) => {
-                const isQuickA = a.is_private || false
-                const isQuickB = b.is_private || false
 
-                // If both are quick, sort completed to bottom
-                if (isQuickA && a.is_completed && !(isQuickB && b.is_completed)) return 1
-                if (!(isQuickA && a.is_completed) && (isQuickB && b.is_completed)) return -1
-
-                // If one is completed quick vs pending quick, handled above.
-                // If mixed types, we specifically only want COMPLETED QUICK items to drop.
-                // Pending Quick items can stay mixed.
-
-                // Let's refine:
-                // If A is Completed Quick Todo -> Weight 100
-                // If B is Completed Quick Todo -> Weight 100
-                // Else -> Weight 0
-
-                const weightA = (a.is_private && a.is_completed) ? 100 : 0
-                const weightB = (b.is_private && b.is_completed) ? 100 : 0
-
-                return weightA - weightB
-                // If weights equal (both 0 or both 100), preserve original order (stable sort implied or just 0)
-            })
-
-            setTasks(sortedData)
+            setTasks(data as Task[])
         }
         setLoading(false)
     }
