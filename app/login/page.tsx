@@ -12,22 +12,29 @@ export default function LoginPage() {
     const router = useRouter()
     const supabase = createClient()
 
+    const [rememberMe, setRememberMe] = useState(true)
+
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault()
         setLoading(true)
         setError(null)
 
-        const { error } = await supabase.auth.signInWithPassword({
-            email,
-            password,
-        })
+        try {
+            const { error } = await supabase.auth.signInWithPassword({
+                email,
+                password,
+            })
 
-        if (error) {
-            setError(error.message)
+            if (error) {
+                setError(error.message)
+                setLoading(false)
+            } else {
+                router.refresh()
+                router.push('/')
+            }
+        } catch (err) {
+            setError('Giriş işlemi sırasında bir hata oluştu.')
             setLoading(false)
-        } else {
-            router.push('/')
-            router.refresh()
         }
     }
 
@@ -77,7 +84,8 @@ export default function LoginPage() {
                             <input
                                 id="remember-me"
                                 type="checkbox"
-                                defaultChecked
+                                checked={rememberMe}
+                                onChange={(e) => setRememberMe(e.target.checked)}
                                 className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded transition"
                             />
                             <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-900">

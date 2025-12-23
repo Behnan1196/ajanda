@@ -41,7 +41,7 @@ export default function SharedHeader({ user, roles = [], title, extraMenuItems =
     }
 
     return (
-        <header className="bg-white h-16 border-b border-gray-200 px-4 md:px-6 flex items-center justify-between z-30 sticky top-0 relative">
+        <header className="bg-white border-b border-gray-200 px-4 pt-12 pb-3 flex items-center justify-between z-30 sticky top-0 relative">
             <h1 className="text-lg md:text-xl font-bold text-gray-900">{title}</h1>
 
             <div className="relative" ref={dropdownRef}>
