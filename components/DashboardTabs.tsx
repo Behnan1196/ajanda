@@ -9,18 +9,24 @@ import MonthlyView from './program/MonthlyView'
 import HabitsView from './program/HabitsView'
 import WeeklyView from './program/WeeklyView'
 import ProgressView from './program/ProgressView'
+import ExamResultsView from './program/ExamResultsView'
+import AIStudentAnalysis from './coach/AIStudentAnalysis'
 import { subscribeUserToPush } from '@/lib/notifications'
 import LifeHubView from './program/LifeHubView'
+import CoachToolsView from './coach/CoachToolsView'
 
 type TabType = 'program' | 'gelisim' | 'iletisim' | 'araclar'
 type ProgramTabType = 'bugun' | 'haftalik' | 'aylik' | 'aliskanliklar'
 
 interface DashboardTabsProps {
     user: User
+    isCoachMode?: boolean
+    initialStudentId?: string
+    initialTab?: TabType
 }
 
-export default function DashboardTabs({ user }: DashboardTabsProps) {
-    const [activeTab, setActiveTab] = useState<TabType>('program')
+export default function DashboardTabs({ user, isCoachMode = false, initialStudentId, initialTab }: DashboardTabsProps) {
+    const [activeTab, setActiveTab] = useState<TabType>(initialTab || 'program')
     const [activeProgramTab, setActiveProgramTab] = useState<ProgramTabType>('bugun')
     const [selectedDate, setSelectedDate] = useState<Date | null>(null)
     const [isDropdownOpen, setIsDropdownOpen] = useState(false)
@@ -29,6 +35,12 @@ export default function DashboardTabs({ user }: DashboardTabsProps) {
     const supabase = createClient()
 
     const [userProfile, setUserProfile] = useState<any>(null)
+    const [students, setStudents] = useState<any[]>([])
+    const [selectedStudent, setSelectedStudent] = useState<any>(null)
+    const [loadingStudents, setLoadingStudents] = useState(false)
+
+    const themeColor = isCoachMode ? 'purple' : 'indigo'
+    const targetUserId = selectedStudent ? selectedStudent.id : user.id
 
     useEffect(() => {
         // Refresh push subscription if permission is granted
@@ -54,8 +66,26 @@ export default function DashboardTabs({ user }: DashboardTabsProps) {
         }
         loadProfile()
 
+        if (isCoachMode) {
+            loadStudents()
+        }
+
         return () => document.removeEventListener('mousedown', handleClickOutside)
-    }, [user.id])
+    }, [user.id, isCoachMode])
+
+    const loadStudents = async () => {
+        setLoadingStudents(true)
+        const { getAssignedStudents } = await import('@/app/actions/coach')
+        const result = await getAssignedStudents()
+        if (result.success) {
+            setStudents(result.data)
+            if (initialStudentId) {
+                const student = result.data.find((s: any) => s.id === initialStudentId)
+                if (student) setSelectedStudent(student)
+            }
+        }
+        setLoadingStudents(false)
+    }
 
     const handleLogout = async () => {
         await supabase.auth.signOut()
@@ -73,14 +103,40 @@ export default function DashboardTabs({ user }: DashboardTabsProps) {
             {/* Header */}
             <header className="bg-white border-b border-gray-200 px-4 pt-12 pb-3 relative z-30">
                 <div className="flex items-center justify-between">
-                    <h1 className="text-xl font-bold text-gray-900">Yaşam Planlayıcı</h1>
+                    <div className="flex items-center gap-3">
+                        {isCoachMode && selectedStudent && (
+                            <button
+                                onClick={() => {
+                                    setSelectedStudent(null)
+                                    if (activeTab === 'gelisim' || activeTab === 'iletisim') {
+                                        setActiveTab('program')
+                                    }
+                                }}
+                                className="p-1 hover:bg-gray-100 rounded-full transition"
+                            >
+                                <svg className="w-6 h-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                                </svg>
+                            </button>
+                        )}
+                        <div>
+                            <h1 className="text-xl font-bold text-gray-900 leading-none">
+                                {isCoachMode ? (selectedStudent ? selectedStudent.name : 'Öğrencilerim') : 'Yaşam Planlayıcı'}
+                            </h1>
+                            {isCoachMode && selectedStudent && (
+                                <span className={`text-[10px] font-bold uppercase tracking-wider text-${themeColor}-600`}>
+                                    {selectedStudent.role}
+                                </span>
+                            )}
+                        </div>
+                    </div>
                     <div className="relative" ref={dropdownRef}>
                         <button
                             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                             className="flex items-center gap-3 hover:bg-gray-50 p-1 rounded-lg transition"
                         >
                             <span className="text-sm text-gray-600 hidden sm:block">{user.email}</span>
-                            <div className="w-8 h-8 bg-indigo-600 rounded-full flex items-center justify-center text-white text-sm font-medium">
+                            <div className={`w-8 h-8 bg-${themeColor}-600 rounded-full flex items-center justify-center text-white text-sm font-medium`}>
                                 {user.email?.[0].toUpperCase()}
                             </div>
                         </button>
@@ -101,10 +157,13 @@ export default function DashboardTabs({ user }: DashboardTabsProps) {
                                 )}
                                 {userProfile?.roles?.includes('coach') && (
                                     <button
-                                        onClick={() => router.push('/coach')}
-                                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 transition flex items-center gap-2"
+                                        onClick={() => {
+                                            router.push(isCoachMode ? '/' : '/coach')
+                                            setIsDropdownOpen(false)
+                                        }}
+                                        className={`w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-${themeColor}-50 hover:text-${themeColor}-600 transition flex items-center gap-2`}
                                     >
-                                        <span>🎓</span> Koç Paneli
+                                        <span>{isCoachMode ? '📅' : '🎓'}</span> {isCoachMode ? 'Kendi Ajandam' : 'Koç Paneli'}
                                     </button>
                                 )}
                                 <button
@@ -132,38 +191,50 @@ export default function DashboardTabs({ user }: DashboardTabsProps) {
                         {/* Program Sub-tabs (Sticky) */}
                         <div className="sticky top-0 bg-gray-50/80 backdrop-blur-md z-20 flex gap-1 p-4 pb-0 overflow-x-auto border-b border-gray-100">
                             <button
-                                onClick={() => setActiveProgramTab('bugun')}
+                                onClick={() => {
+                                    if (isCoachMode && !selectedStudent) return
+                                    setActiveProgramTab('bugun')
+                                }}
                                 className={`py-2 px-3 rounded-t-lg text-sm font-medium transition whitespace-nowrap ${activeProgramTab === 'bugun'
-                                    ? 'bg-white text-indigo-600 shadow-sm'
+                                    ? `bg-white text-${themeColor}-600 shadow-sm`
                                     : 'text-gray-600 hover:bg-gray-50'
-                                    }`}
+                                    } ${isCoachMode && !selectedStudent ? 'opacity-40 cursor-not-allowed' : ''}`}
                             >
                                 Günlük
                             </button>
                             <button
-                                onClick={() => setActiveProgramTab('haftalik')}
+                                onClick={() => {
+                                    if (isCoachMode && !selectedStudent) return
+                                    setActiveProgramTab('haftalik')
+                                }}
                                 className={`py-2 px-3 rounded-t-lg text-sm font-medium transition whitespace-nowrap ${activeProgramTab === 'haftalik'
-                                    ? 'bg-white text-indigo-600 shadow-sm'
+                                    ? `bg-white text-${themeColor}-600 shadow-sm`
                                     : 'text-gray-600 hover:bg-gray-50'
-                                    }`}
+                                    } ${isCoachMode && !selectedStudent ? 'opacity-40 cursor-not-allowed' : ''}`}
                             >
                                 Haftalık
                             </button>
                             <button
-                                onClick={() => setActiveProgramTab('aylik')}
+                                onClick={() => {
+                                    if (isCoachMode && !selectedStudent) return
+                                    setActiveProgramTab('aylik')
+                                }}
                                 className={`py-2 px-3 rounded-t-lg text-sm font-medium transition whitespace-nowrap ${activeProgramTab === 'aylik'
-                                    ? 'bg-white text-indigo-600 shadow-sm'
+                                    ? `bg-white text-${themeColor}-600 shadow-sm`
                                     : 'text-gray-600 hover:bg-gray-50'
-                                    }`}
+                                    } ${isCoachMode && !selectedStudent ? 'opacity-40 cursor-not-allowed' : ''}`}
                             >
                                 Aylık
                             </button>
                             <button
-                                onClick={() => setActiveProgramTab('aliskanliklar')}
+                                onClick={() => {
+                                    if (isCoachMode && !selectedStudent) return
+                                    setActiveProgramTab('aliskanliklar')
+                                }}
                                 className={`py-2 px-3 rounded-t-lg text-sm font-medium transition whitespace-nowrap ${activeProgramTab === 'aliskanliklar'
-                                    ? 'bg-white text-indigo-600 shadow-sm'
+                                    ? `bg-white text-${themeColor}-600 shadow-sm`
                                     : 'text-gray-600 hover:bg-gray-50'
-                                    }`}
+                                    } ${isCoachMode && !selectedStudent ? 'opacity-40 cursor-not-allowed' : ''}`}
                             >
                                 Alışkanlıklar
                             </button>
@@ -171,51 +242,103 @@ export default function DashboardTabs({ user }: DashboardTabsProps) {
 
                         {/* Program Content */}
                         <div className="bg-white">
-                            {activeProgramTab === 'bugun' && (
-                                <div className="p-4 pt-0">
-                                    <TodayView userId={user.id} initialDate={selectedDate} />
+                            {isCoachMode && !selectedStudent ? (
+                                <div className="p-4 grid grid-cols-1 gap-4">
+                                    {loadingStudents ? (
+                                        <div className="text-center py-12 text-gray-500">Öğrenciler yükleniyor...</div>
+                                    ) : students.length === 0 ? (
+                                        <div className="text-center py-12 text-gray-500 bg-gray-50 rounded-lg">
+                                            <span className="text-4xl block mb-2">👶</span>
+                                            Henüz öğrenciniz yok
+                                        </div>
+                                    ) : (
+                                        students.map(student => (
+                                            <button
+                                                key={student.id}
+                                                onClick={() => setSelectedStudent(student)}
+                                                className="flex items-center gap-4 p-4 bg-white border border-gray-200 rounded-xl hover:border-purple-300 hover:shadow-md transition text-left group"
+                                            >
+                                                <div className="h-12 w-12 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center text-xl font-bold">
+                                                    {student.name.charAt(0).toUpperCase()}
+                                                </div>
+                                                <div className="flex-1">
+                                                    <h3 className="font-semibold text-gray-900 group-hover:text-purple-600 transition">
+                                                        {student.name}
+                                                    </h3>
+                                                    <p className="text-xs text-gray-500">{student.role}</p>
+                                                </div>
+                                                <div className="text-purple-600 opacity-0 group-hover:opacity-100 transition mr-2">
+                                                    →
+                                                </div>
+                                            </button>
+                                        ))
+                                    )}
                                 </div>
-                            )}
-                            {activeProgramTab === 'haftalik' && (
-                                <WeeklyView userId={user.id} onDateSelect={handleDateSelect} />
-                            )}
-                            {activeProgramTab === 'aylik' && (
-                                <MonthlyView userId={user.id} onDateSelect={handleDateSelect} />
-                            )}
-                            {activeProgramTab === 'aliskanliklar' && (
-                                <div className="p-4 pt-0">
-                                    <HabitsView userId={user.id} />
-                                </div>
+                            ) : (
+                                <>
+                                    {activeProgramTab === 'bugun' && (
+                                        <div className="p-4 pt-0">
+                                            <TodayView userId={targetUserId} initialDate={selectedDate} />
+                                        </div>
+                                    )}
+                                    {activeProgramTab === 'haftalik' && (
+                                        <WeeklyView userId={targetUserId} onDateSelect={handleDateSelect} />
+                                    )}
+                                    {activeProgramTab === 'aylik' && (
+                                        <MonthlyView userId={targetUserId} onDateSelect={handleDateSelect} />
+                                    )}
+                                    {activeProgramTab === 'aliskanliklar' && (
+                                        <div className="p-4 pt-0">
+                                            <HabitsView userId={targetUserId} />
+                                        </div>
+                                    )}
+                                </>
                             )}
                         </div>
                     </div>
                 )}
 
                 {activeTab === 'gelisim' && (
-                    <div className="p-4">
-                        <ProgressView userId={user.id} />
+                    <div className="p-4 space-y-8">
+                        {isCoachMode && selectedStudent && (
+                            <AIStudentAnalysis studentId={targetUserId} />
+                        )}
+                        <ProgressView userId={targetUserId} />
+                        {selectedStudent && (
+                            <ExamResultsView userId={targetUserId} readOnly={false} />
+                        )}
                     </div>
                 )}
 
                 {activeTab === 'iletisim' && (
                     <div className="p-4 text-center py-12 text-gray-500">
-                        İletişim modülü yakında eklenecek
+                        {isCoachMode && selectedStudent ? (
+                            <div className="space-y-4">
+                                <div className={`w-16 h-16 bg-${themeColor}-100 text-${themeColor}-600 rounded-full flex items-center justify-center mx-auto text-2xl font-bold`}>
+                                    {selectedStudent.name.charAt(0)}
+                                </div>
+                                <h3 className="text-lg font-medium text-gray-900">{selectedStudent.name} ile İletişim</h3>
+                                <p className="text-sm">Mesajlaşma ve görüntülü görüşme modülü yakında eklenecek</p>
+                            </div>
+                        ) : (
+                            "İletişim modülü yakında eklenecek"
+                        )}
                     </div>
                 )}
 
                 {activeTab === 'araclar' && (
                     <div className="p-4">
-                        <LifeHubView />
+                        {isCoachMode ? <CoachToolsView /> : <LifeHubView />}
                     </div>
                 )}
             </div>
 
             {/* Bottom Tab Bar */}
-            <nav className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-2 safe-area-bottom">
+            <nav className={`fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-2 safe-area-bottom z-30`}>
                 <div className="flex items-center justify-around max-w-2xl mx-auto">
                     <button
                         onClick={() => setActiveTab('program')}
-                        className={`flex flex-col items-center gap-1 py-2 px-4 rounded-lg transition ${activeTab === 'program' ? 'text-indigo-600' : 'text-gray-600'
+                        className={`flex flex-col items-center gap-1 py-2 px-4 rounded-lg transition ${activeTab === 'program' ? `text-${themeColor}-600` : 'text-gray-600'
                             }`}
                     >
                         <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -225,9 +348,13 @@ export default function DashboardTabs({ user }: DashboardTabsProps) {
                     </button>
 
                     <button
-                        onClick={() => setActiveTab('gelisim')}
-                        className={`flex flex-col items-center gap-1 py-2 px-4 rounded-lg transition ${activeTab === 'gelisim' ? 'text-indigo-600' : 'text-gray-600'
-                            }`}
+                        onClick={() => {
+                            if (isCoachMode && !selectedStudent) return
+                            setActiveTab('gelisim')
+                        }}
+                        className={`flex flex-col items-center gap-1 py-2 px-4 rounded-lg transition ${activeTab === 'gelisim' ? `text-${themeColor}-600` : 'text-gray-600'
+                            } ${isCoachMode && !selectedStudent ? 'opacity-40 cursor-not-allowed' : ''}`}
+                        title={isCoachMode && !selectedStudent ? 'Önce bir öğrenci seçmelisiniz' : ''}
                     >
                         <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
@@ -236,9 +363,13 @@ export default function DashboardTabs({ user }: DashboardTabsProps) {
                     </button>
 
                     <button
-                        onClick={() => setActiveTab('iletisim')}
-                        className={`flex flex-col items-center gap-1 py-2 px-4 rounded-lg transition ${activeTab === 'iletisim' ? 'text-indigo-600' : 'text-gray-600'
-                            }`}
+                        onClick={() => {
+                            if (isCoachMode && !selectedStudent) return
+                            setActiveTab('iletisim')
+                        }}
+                        className={`flex flex-col items-center gap-1 py-2 px-4 rounded-lg transition ${activeTab === 'iletisim' ? `text-${themeColor}-600` : 'text-gray-600'
+                            } ${isCoachMode && !selectedStudent ? 'opacity-40 cursor-not-allowed' : ''}`}
+                        title={isCoachMode && !selectedStudent ? 'Önce bir öğrenci seçmelisiniz' : ''}
                     >
                         <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -248,7 +379,7 @@ export default function DashboardTabs({ user }: DashboardTabsProps) {
 
                     <button
                         onClick={() => setActiveTab('araclar')}
-                        className={`flex flex-col items-center gap-1 py-2 px-4 rounded-lg transition ${activeTab === 'araclar' ? 'text-indigo-600' : 'text-gray-600'
+                        className={`flex flex-col items-center gap-1 py-2 px-4 rounded-lg transition ${activeTab === 'araclar' ? `text-${themeColor}-600` : 'text-gray-600'
                             }`}
                     >
                         <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
