@@ -3,7 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 
-export async function getAssignedStudents() {
+export async function getAssignedPersonas() {
     const supabase = await createClient()
 
     const { data: { user } } = await supabase.auth.getUser()
@@ -22,8 +22,8 @@ export async function getAssignedStudents() {
         return { error: 'Unauthorized' }
     }
 
-    // Fetch students assigned to this coach
-    const { data: students, error } = await supabase
+    // Fetch personas assigned to this tutor
+    const { data: personas, error } = await supabase
         .from('user_relationships')
         .select(`
             id,
@@ -38,24 +38,24 @@ export async function getAssignedStudents() {
         .eq('is_active', true)
 
     if (error) {
-        console.error('Error fetching students:', error)
+        console.error('Error fetching personas:', error)
         return { error: error.message }
     }
 
     // Flatten the response
     return {
         success: true,
-        data: students.map((rel: any) => ({
+        data: personas.map((rel: any) => ({
             id: rel.student.id,
             name: rel.student.name,
             email: rel.student.email,
             relationshipId: rel.id,
-            role: rel.role_label || 'Genel Koç'
+            role: rel.role_label || 'Genel Tutor'
         }))
     }
 }
 
-export async function getStudentRelationships(studentId: string) {
+export async function getPersonaRelationships(personaId: string) {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return { error: 'Unauthorized' }
@@ -64,7 +64,7 @@ export async function getStudentRelationships(studentId: string) {
         .from('user_relationships')
         .select('id, role_label')
         .eq('coach_id', user.id)
-        .eq('student_id', studentId)
+        .eq('student_id', personaId)
         .eq('is_active', true)
 
     if (error) {
@@ -74,6 +74,6 @@ export async function getStudentRelationships(studentId: string) {
 
     return data.map(r => ({
         id: r.id,
-        role: r.role_label || 'Genel Koç'
+        role: r.role_label || 'Genel Tutor'
     }))
 }

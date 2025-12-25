@@ -10,22 +10,23 @@ import HabitsView from './program/HabitsView'
 import WeeklyView from './program/WeeklyView'
 import ProgressView from './program/ProgressView'
 import ExamResultsView from './program/ExamResultsView'
-import AIStudentAnalysis from './coach/AIStudentAnalysis'
+import AIPersonaAnalysis from './tutor/AIPersonaAnalysis'
 import { subscribeUserToPush } from '@/lib/notifications'
 import LifeHubView from './program/LifeHubView'
-import CoachToolsView from './coach/CoachToolsView'
+import TutorToolsView from './tutor/TutorToolsView'
+import { useOfflineSync } from '@/hooks/useOfflineSync'
 
 type TabType = 'program' | 'gelisim' | 'iletisim' | 'araclar'
 type ProgramTabType = 'bugun' | 'haftalik' | 'aylik' | 'aliskanliklar'
 
 interface DashboardTabsProps {
     user: User
-    isCoachMode?: boolean
-    initialStudentId?: string
+    isTutorMode?: boolean
+    initialPersonaId?: string
     initialTab?: TabType
 }
 
-export default function DashboardTabs({ user, isCoachMode = false, initialStudentId, initialTab }: DashboardTabsProps) {
+export default function DashboardTabs({ user, isTutorMode = false, initialPersonaId, initialTab }: DashboardTabsProps) {
     const [activeTab, setActiveTab] = useState<TabType>(initialTab || 'program')
     const [activeProgramTab, setActiveProgramTab] = useState<ProgramTabType>('bugun')
     const [selectedDate, setSelectedDate] = useState<Date | null>(null)
@@ -35,12 +36,15 @@ export default function DashboardTabs({ user, isCoachMode = false, initialStuden
     const supabase = createClient()
 
     const [userProfile, setUserProfile] = useState<any>(null)
-    const [students, setStudents] = useState<any[]>([])
-    const [selectedStudent, setSelectedStudent] = useState<any>(null)
-    const [loadingStudents, setLoadingStudents] = useState(false)
+    const [personas, setPersonas] = useState<any[]>([])
+    const [selectedPersona, setSelectedPersona] = useState<any>(null)
+    const [loadingPersonas, setLoadingPersonas] = useState(false)
 
-    const themeColor = isCoachMode ? 'purple' : 'indigo'
-    const targetUserId = selectedStudent ? selectedStudent.id : user.id
+    const themeColor = isTutorMode ? 'purple' : 'indigo'
+    const targetUserId = selectedPersona ? selectedPersona.id : user.id
+
+    // Initialize background sync for the persona's own data
+    useOfflineSync(user.id)
 
     useEffect(() => {
         // Refresh push subscription if permission is granted
@@ -66,25 +70,25 @@ export default function DashboardTabs({ user, isCoachMode = false, initialStuden
         }
         loadProfile()
 
-        if (isCoachMode) {
-            loadStudents()
+        if (isTutorMode) {
+            loadPersonas()
         }
 
         return () => document.removeEventListener('mousedown', handleClickOutside)
-    }, [user.id, isCoachMode])
+    }, [user.id, isTutorMode])
 
-    const loadStudents = async () => {
-        setLoadingStudents(true)
-        const { getAssignedStudents } = await import('@/app/actions/coach')
-        const result = await getAssignedStudents()
+    const loadPersonas = async () => {
+        setLoadingPersonas(true)
+        const { getAssignedPersonas } = await import('@/app/actions/tutor')
+        const result = await getAssignedPersonas()
         if (result.success) {
-            setStudents(result.data)
-            if (initialStudentId) {
-                const student = result.data.find((s: any) => s.id === initialStudentId)
-                if (student) setSelectedStudent(student)
+            setPersonas(result.data)
+            if (initialPersonaId) {
+                const persona = result.data.find((s: any) => s.id === initialPersonaId)
+                if (persona) setSelectedPersona(persona)
             }
         }
-        setLoadingStudents(false)
+        setLoadingPersonas(false)
     }
 
     const handleLogout = async () => {
@@ -104,10 +108,10 @@ export default function DashboardTabs({ user, isCoachMode = false, initialStuden
             <header className="bg-white border-b border-gray-200 px-4 pt-12 pb-3 relative z-30">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        {isCoachMode && selectedStudent && (
+                        {isTutorMode && selectedPersona && (
                             <button
                                 onClick={() => {
-                                    setSelectedStudent(null)
+                                    setSelectedPersona(null)
                                     if (activeTab === 'gelisim' || activeTab === 'iletisim') {
                                         setActiveTab('program')
                                     }
@@ -121,11 +125,11 @@ export default function DashboardTabs({ user, isCoachMode = false, initialStuden
                         )}
                         <div>
                             <h1 className="text-xl font-bold text-gray-900 leading-none">
-                                {isCoachMode ? (selectedStudent ? selectedStudent.name : 'Öğrencilerim') : 'Yaşam Planlayıcı'}
+                                {isTutorMode ? (selectedPersona ? selectedPersona.name : 'Personalarım') : 'Yaşam Planlayıcı'}
                             </h1>
-                            {isCoachMode && selectedStudent && (
+                            {isTutorMode && selectedPersona && (
                                 <span className={`text-[10px] font-bold uppercase tracking-wider text-${themeColor}-600`}>
-                                    {selectedStudent.role}
+                                    {selectedPersona.role}
                                 </span>
                             )}
                         </div>
@@ -158,12 +162,12 @@ export default function DashboardTabs({ user, isCoachMode = false, initialStuden
                                 {userProfile?.roles?.includes('coach') && (
                                     <button
                                         onClick={() => {
-                                            router.push(isCoachMode ? '/' : '/coach')
+                                            router.push(isTutorMode ? '/' : '/tutor')
                                             setIsDropdownOpen(false)
                                         }}
                                         className={`w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-${themeColor}-50 hover:text-${themeColor}-600 transition flex items-center gap-2`}
                                     >
-                                        <span>{isCoachMode ? '📅' : '🎓'}</span> {isCoachMode ? 'Kendi Ajandam' : 'Koç Paneli'}
+                                        <span>{isTutorMode ? '📅' : '🎓'}</span> {isTutorMode ? 'Kendi Ajandam' : 'Tutor Paneli'}
                                     </button>
                                 )}
                                 <button
@@ -192,49 +196,49 @@ export default function DashboardTabs({ user, isCoachMode = false, initialStuden
                         <div className="sticky top-0 bg-gray-50/80 backdrop-blur-md z-20 flex gap-1 p-4 pb-0 overflow-x-auto border-b border-gray-100">
                             <button
                                 onClick={() => {
-                                    if (isCoachMode && !selectedStudent) return
+                                    if (isTutorMode && !selectedPersona) return
                                     setActiveProgramTab('bugun')
                                 }}
                                 className={`py-2 px-3 rounded-t-lg text-sm font-medium transition whitespace-nowrap ${activeProgramTab === 'bugun'
                                     ? `bg-white text-${themeColor}-600 shadow-sm`
                                     : 'text-gray-600 hover:bg-gray-50'
-                                    } ${isCoachMode && !selectedStudent ? 'opacity-40 cursor-not-allowed' : ''}`}
+                                    } ${isTutorMode && !selectedPersona ? 'opacity-40 cursor-not-allowed' : ''}`}
                             >
                                 Günlük
                             </button>
                             <button
                                 onClick={() => {
-                                    if (isCoachMode && !selectedStudent) return
+                                    if (isTutorMode && !selectedPersona) return
                                     setActiveProgramTab('haftalik')
                                 }}
                                 className={`py-2 px-3 rounded-t-lg text-sm font-medium transition whitespace-nowrap ${activeProgramTab === 'haftalik'
                                     ? `bg-white text-${themeColor}-600 shadow-sm`
                                     : 'text-gray-600 hover:bg-gray-50'
-                                    } ${isCoachMode && !selectedStudent ? 'opacity-40 cursor-not-allowed' : ''}`}
+                                    } ${isTutorMode && !selectedPersona ? 'opacity-40 cursor-not-allowed' : ''}`}
                             >
                                 Haftalık
                             </button>
                             <button
                                 onClick={() => {
-                                    if (isCoachMode && !selectedStudent) return
+                                    if (isTutorMode && !selectedPersona) return
                                     setActiveProgramTab('aylik')
                                 }}
                                 className={`py-2 px-3 rounded-t-lg text-sm font-medium transition whitespace-nowrap ${activeProgramTab === 'aylik'
                                     ? `bg-white text-${themeColor}-600 shadow-sm`
                                     : 'text-gray-600 hover:bg-gray-50'
-                                    } ${isCoachMode && !selectedStudent ? 'opacity-40 cursor-not-allowed' : ''}`}
+                                    } ${isTutorMode && !selectedPersona ? 'opacity-40 cursor-not-allowed' : ''}`}
                             >
                                 Aylık
                             </button>
                             <button
                                 onClick={() => {
-                                    if (isCoachMode && !selectedStudent) return
+                                    if (isTutorMode && !selectedPersona) return
                                     setActiveProgramTab('aliskanliklar')
                                 }}
                                 className={`py-2 px-3 rounded-t-lg text-sm font-medium transition whitespace-nowrap ${activeProgramTab === 'aliskanliklar'
                                     ? `bg-white text-${themeColor}-600 shadow-sm`
                                     : 'text-gray-600 hover:bg-gray-50'
-                                    } ${isCoachMode && !selectedStudent ? 'opacity-40 cursor-not-allowed' : ''}`}
+                                    } ${isTutorMode && !selectedPersona ? 'opacity-40 cursor-not-allowed' : ''}`}
                             >
                                 Alışkanlıklar
                             </button>
@@ -242,30 +246,30 @@ export default function DashboardTabs({ user, isCoachMode = false, initialStuden
 
                         {/* Program Content */}
                         <div className="bg-white">
-                            {isCoachMode && !selectedStudent ? (
+                            {isTutorMode && !selectedPersona ? (
                                 <div className="p-4 grid grid-cols-1 gap-4">
-                                    {loadingStudents ? (
-                                        <div className="text-center py-12 text-gray-500">Öğrenciler yükleniyor...</div>
-                                    ) : students.length === 0 ? (
+                                    {loadingPersonas ? (
+                                        <div className="text-center py-12 text-gray-500">Personalar yükleniyor...</div>
+                                    ) : personas.length === 0 ? (
                                         <div className="text-center py-12 text-gray-500 bg-gray-50 rounded-lg">
                                             <span className="text-4xl block mb-2">👶</span>
-                                            Henüz öğrenciniz yok
+                                            Henüz personanız yok
                                         </div>
                                     ) : (
-                                        students.map(student => (
+                                        personas.map(persona => (
                                             <button
-                                                key={student.id}
-                                                onClick={() => setSelectedStudent(student)}
+                                                key={persona.id}
+                                                onClick={() => setSelectedPersona(persona)}
                                                 className="flex items-center gap-4 p-4 bg-white border border-gray-200 rounded-xl hover:border-purple-300 hover:shadow-md transition text-left group"
                                             >
                                                 <div className="h-12 w-12 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center text-xl font-bold">
-                                                    {student.name.charAt(0).toUpperCase()}
+                                                    {persona.name.charAt(0).toUpperCase()}
                                                 </div>
                                                 <div className="flex-1">
                                                     <h3 className="font-semibold text-gray-900 group-hover:text-purple-600 transition">
-                                                        {student.name}
+                                                        {persona.name}
                                                     </h3>
-                                                    <p className="text-xs text-gray-500">{student.role}</p>
+                                                    <p className="text-xs text-gray-500">{persona.role}</p>
                                                 </div>
                                                 <div className="text-purple-600 opacity-0 group-hover:opacity-100 transition mr-2">
                                                     →
@@ -278,11 +282,11 @@ export default function DashboardTabs({ user, isCoachMode = false, initialStuden
                                 <>
                                     {activeProgramTab === 'bugun' && (
                                         <div className="p-4 pt-0">
-                                            <TodayView userId={targetUserId} initialDate={selectedDate} />
+                                            <TodayView userId={targetUserId} initialDate={selectedDate} isTutorMode={isTutorMode} />
                                         </div>
                                     )}
                                     {activeProgramTab === 'haftalik' && (
-                                        <WeeklyView userId={targetUserId} onDateSelect={handleDateSelect} />
+                                        <WeeklyView userId={targetUserId} onDateSelect={handleDateSelect} isTutorMode={isTutorMode} />
                                     )}
                                     {activeProgramTab === 'aylik' && (
                                         <MonthlyView userId={targetUserId} onDateSelect={handleDateSelect} />
@@ -300,11 +304,11 @@ export default function DashboardTabs({ user, isCoachMode = false, initialStuden
 
                 {activeTab === 'gelisim' && (
                     <div className="p-4 space-y-8">
-                        {isCoachMode && selectedStudent && (
-                            <AIStudentAnalysis studentId={targetUserId} />
+                        {isTutorMode && selectedPersona && (
+                            <AIPersonaAnalysis personaId={targetUserId} />
                         )}
                         <ProgressView userId={targetUserId} />
-                        {selectedStudent && (
+                        {selectedPersona && (
                             <ExamResultsView userId={targetUserId} readOnly={false} />
                         )}
                     </div>
@@ -312,12 +316,12 @@ export default function DashboardTabs({ user, isCoachMode = false, initialStuden
 
                 {activeTab === 'iletisim' && (
                     <div className="p-4 text-center py-12 text-gray-500">
-                        {isCoachMode && selectedStudent ? (
+                        {isTutorMode && selectedPersona ? (
                             <div className="space-y-4">
                                 <div className={`w-16 h-16 bg-${themeColor}-100 text-${themeColor}-600 rounded-full flex items-center justify-center mx-auto text-2xl font-bold`}>
-                                    {selectedStudent.name.charAt(0)}
+                                    {selectedPersona.name.charAt(0)}
                                 </div>
-                                <h3 className="text-lg font-medium text-gray-900">{selectedStudent.name} ile İletişim</h3>
+                                <h3 className="text-lg font-medium text-gray-900">{selectedPersona.name} ile İletişim</h3>
                                 <p className="text-sm">Mesajlaşma ve görüntülü görüşme modülü yakında eklenecek</p>
                             </div>
                         ) : (
@@ -328,7 +332,7 @@ export default function DashboardTabs({ user, isCoachMode = false, initialStuden
 
                 {activeTab === 'araclar' && (
                     <div className="p-4">
-                        {isCoachMode ? <CoachToolsView /> : <LifeHubView />}
+                        {isTutorMode ? <TutorToolsView /> : <LifeHubView />}
                     </div>
                 )}
             </div>
@@ -349,12 +353,12 @@ export default function DashboardTabs({ user, isCoachMode = false, initialStuden
 
                     <button
                         onClick={() => {
-                            if (isCoachMode && !selectedStudent) return
+                            if (isTutorMode && !selectedPersona) return
                             setActiveTab('gelisim')
                         }}
                         className={`flex flex-col items-center gap-1 py-2 px-4 rounded-lg transition ${activeTab === 'gelisim' ? `text-${themeColor}-600` : 'text-gray-600'
-                            } ${isCoachMode && !selectedStudent ? 'opacity-40 cursor-not-allowed' : ''}`}
-                        title={isCoachMode && !selectedStudent ? 'Önce bir öğrenci seçmelisiniz' : ''}
+                            } ${isTutorMode && !selectedPersona ? 'opacity-40 cursor-not-allowed' : ''}`}
+                        title={isTutorMode && !selectedPersona ? 'Önce bir persona seçmelisiniz' : ''}
                     >
                         <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
@@ -364,12 +368,12 @@ export default function DashboardTabs({ user, isCoachMode = false, initialStuden
 
                     <button
                         onClick={() => {
-                            if (isCoachMode && !selectedStudent) return
+                            if (isTutorMode && !selectedPersona) return
                             setActiveTab('iletisim')
                         }}
                         className={`flex flex-col items-center gap-1 py-2 px-4 rounded-lg transition ${activeTab === 'iletisim' ? `text-${themeColor}-600` : 'text-gray-600'
-                            } ${isCoachMode && !selectedStudent ? 'opacity-40 cursor-not-allowed' : ''}`}
-                        title={isCoachMode && !selectedStudent ? 'Önce bir öğrenci seçmelisiniz' : ''}
+                            } ${isTutorMode && !selectedPersona ? 'opacity-40 cursor-not-allowed' : ''}`}
+                        title={isTutorMode && !selectedPersona ? 'Önce bir persona seçmelisiniz' : ''}
                     >
                         <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />

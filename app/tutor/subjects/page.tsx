@@ -13,7 +13,7 @@ export default async function SubjectsPage() {
     return (
         <DashboardTabs
             user={user}
-            isCoachMode={true}
+            isTutorMode={true}
             initialTab="araclar"
         />
     )

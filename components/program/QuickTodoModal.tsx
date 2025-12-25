@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { requestNotificationPermission, sendTestNotification, subscribeUserToPush } from '@/lib/notifications'
+import { db } from '@/lib/db'
 
 interface Task {
     id: string
@@ -211,10 +212,17 @@ export default function QuickTodoModal({ onClose, initialDate, onTaskAdded, edit
         let error
 
         if (isEditMode && editingTask) {
+            // Local Update
+            await db.tasks.update(editingTask.id, { ...taskData, is_dirty: 1 })
+
             const { error: updateError } = await supabase
                 .from('tasks')
                 .update(taskData)
                 .eq('id', editingTask.id)
+
+            if (!updateError) {
+                await db.tasks.update(editingTask.id, { is_dirty: 0 })
+            }
             error = updateError
         } else {
             // ... type lookup ...
@@ -227,30 +235,41 @@ export default function QuickTodoModal({ onClose, initialDate, onTaskAdded, edit
                 typeId = anyType?.id
             }
 
-            // Get max sort_order for this user and date to add new task at bottom
-            const { data: maxOrderData } = await supabase
-                .from('tasks')
-                .select('sort_order')
-                .eq('user_id', user.id)
-                .eq('due_date', dueDate)
-                .is('project_id', null)
-                .order('sort_order', { ascending: false })
-                .limit(1)
-                .single()
+            // Get max sort_order from local first
+            const maxLocal = await db.tasks.where({ user_id: user.id, due_date: dueDate }).reverse().sortBy('sort_order')
+            const newSortOrder = (maxLocal[0]?.sort_order ?? -1) + 1
 
-            const newSortOrder = (maxOrderData?.sort_order ?? -1) + 1
+            const taskId = crypto.randomUUID()
+            const fullTaskData = {
+                ...taskData,
+                id: taskId,
+                task_type_id: typeId,
+                user_id: user.id,
+                created_by: user.id,
+                is_private: true,
+                is_completed: false,
+                sort_order: newSortOrder,
+                project_id: null,
+                relationship_id: null
+            }
+
+            // Local Insert
+            await db.tasks.add({
+                ...fullTaskData,
+                is_dirty: 1,
+                last_synced_at: null,
+                completed_at: null,
+                subject_id: null,
+                topic_id: null
+            })
 
             const { error: insertError } = await supabase
                 .from('tasks')
-                .insert({
-                    ...taskData,
-                    task_type_id: typeId,
-                    user_id: user.id,
-                    created_by: user.id,
-                    is_private: true,
-                    is_completed: false,
-                    sort_order: newSortOrder
-                })
+                .insert(fullTaskData)
+
+            if (!insertError) {
+                await db.tasks.update(taskId, { is_dirty: 0, last_synced_at: new Date().toISOString() })
+            }
             error = insertError
         }
 

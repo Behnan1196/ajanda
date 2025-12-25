@@ -4,9 +4,10 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import SortableTaskCard from './SortableTaskCard'
 import AddTaskButton from './AddTaskButton'
-import AddQuickTodoButton from './AddQuickTodoButton'
 import TaskFormModal from './TaskFormModal'
 import QuickTodoModal from './QuickTodoModal'
+import { db } from '@/lib/db'
+import { useLiveQuery } from 'dexie-react-hooks'
 import {
     DndContext,
     closestCenter,
@@ -48,9 +49,10 @@ interface Task {
 interface TodayViewProps {
     userId: string
     initialDate?: Date | null
+    isTutorMode?: boolean
 }
 
-export default function TodayView({ userId, initialDate }: TodayViewProps) {
+export default function TodayView({ userId, initialDate, isTutorMode = false }: TodayViewProps) {
     const [tasks, setTasks] = useState<Task[]>([])
     const [loading, setLoading] = useState(true)
     const [showTaskModal, setShowTaskModal] = useState(false)
@@ -58,6 +60,39 @@ export default function TodayView({ userId, initialDate }: TodayViewProps) {
     const [editingTask, setEditingTask] = useState<Task | null>(null)
     const [selectedDate, setSelectedDate] = useState(initialDate || new Date())
     const supabase = createClient()
+
+    const toLocalISOString = (date: Date) => {
+        const offset = date.getTimezoneOffset()
+        const localDate = new Date(date.getTime() - (offset * 60 * 1000))
+        return localDate.toISOString().split('T')[0]
+    }
+
+    // Local-first logic: Use IndexedDB if viewing own tasks
+    const dateString = toLocalISOString(selectedDate)
+    const localTasks = useLiveQuery(
+        () => db.tasks.where({ user_id: userId, due_date: dateString }).sortBy('sort_order'),
+        [userId, dateString]
+    )
+
+    // Sync tasks state with either localTasks or remote fetch
+    useEffect(() => {
+        const enrichTasks = async () => {
+            if (localTasks) {
+                const enriched = await Promise.all(localTasks.map(async (t) => {
+                    const type = await db.task_types.get(t.task_type_id)
+                    const subject = t.subject_id ? await db.subjects.get(t.subject_id) : null
+                    return {
+                        ...t,
+                        task_types: type || { name: 'Görev', slug: 'todo', icon: '📝' },
+                        subjects: subject || null
+                    }
+                }))
+                setTasks(enriched as Task[])
+                setLoading(false)
+            }
+        }
+        enrichTasks()
+    }, [localTasks])
 
     // Drag & Drop sensors
     const sensors = useSensors(
@@ -95,51 +130,31 @@ export default function TodayView({ userId, initialDate }: TodayViewProps) {
         }
     }
 
-    const toLocalISOString = (date: Date) => {
-        const offset = date.getTimezoneOffset()
-        const localDate = new Date(date.getTime() - (offset * 60 * 1000))
-        return localDate.toISOString().split('T')[0]
-    }
-
     const loadTasks = async (date: Date) => {
-        setLoading(true)
-        const dateString = toLocalISOString(date)
+        // If we have local tasks, we don't necessarily need to fetch from Supabase here
+        // as the sync engine handles that. But for student views (coach mode), we still need it.
+        if (isTutorMode && userId !== undefined) {
+            setLoading(true)
+            const dateString = toLocalISOString(date)
 
-        const { data, error } = await supabase
-            .from('tasks')
-            .select(`
-        *,
-        task_types (
-          name,
-          slug,
-          icon
-        ),
-        subjects (
-          name,
-          icon,
-          color
-        ),
-        topics (
-          name
-        )
-      `)
-            .eq('user_id', userId)
-            .is('project_id', null)
-            .eq('due_date', dateString)
-            .order('sort_order', { ascending: true })
-            .order('due_time', { ascending: true, nullsFirst: false })
+            const { data, error } = await supabase
+                .from('tasks')
+                .select(`
+            *,
+            task_types (name, slug, icon),
+            subjects (name, icon, color),
+            topics (name)
+          `)
+                .eq('user_id', userId)
+                .is('project_id', null)
+                .eq('due_date', dateString)
+                .order('sort_order', { ascending: true })
 
-        if (error) {
-            console.error('Error loading tasks:', error)
-        } else {
-            // Apply sorting logic:
-            // 1. Quick Todos (is_private) that are completed (is_completed) go to BOTTOM (Lowest priority)
-            // 2. Everything else keeps its order (based on DB sort due_time)
-
-
-            setTasks(data as Task[])
+            if (!error && data) {
+                setTasks(data as Task[])
+            }
+            setLoading(false)
         }
-        setLoading(false)
     }
 
     useEffect(() => {
@@ -147,41 +162,55 @@ export default function TodayView({ userId, initialDate }: TodayViewProps) {
     }, [userId, selectedDate])
 
     const handleTaskComplete = async (taskId: string) => {
+        const updateData = {
+            is_completed: true,
+            completed_at: new Date().toISOString(),
+            is_dirty: 1
+        }
+
+        // Local Update
+        await db.tasks.update(taskId, updateData)
+
+        // Optimistic Remote Update
         const { error } = await supabase
             .from('tasks')
-            .update({
-                is_completed: true,
-                completed_at: new Date().toISOString(),
-            })
+            .update({ is_completed: true, completed_at: updateData.completed_at })
             .eq('id', taskId)
 
         if (!error) {
-            loadTasks(selectedDate)
+            await db.tasks.update(taskId, { is_dirty: 0 })
         }
     }
 
     const handleTaskUncomplete = async (taskId: string) => {
+        const updateData = {
+            is_completed: false,
+            completed_at: null,
+            is_dirty: 1
+        }
+
+        await db.tasks.update(taskId, updateData)
+
         const { error } = await supabase
             .from('tasks')
-            .update({
-                is_completed: false,
-                completed_at: null,
-            })
+            .update({ is_completed: false, completed_at: null })
             .eq('id', taskId)
 
         if (!error) {
-            loadTasks(selectedDate)
+            await db.tasks.update(taskId, { is_dirty: 0 })
         }
     }
 
     const handleTaskDelete = async (taskId: string) => {
+        await db.tasks.delete(taskId)
+
         const { error } = await supabase
             .from('tasks')
             .delete()
             .eq('id', taskId)
 
-        if (!error) {
-            loadTasks(selectedDate)
+        if (error) {
+            console.error('Remote delete failed, but local is gone:', error)
         }
     }
 
@@ -210,7 +239,11 @@ export default function TodayView({ userId, initialDate }: TodayViewProps) {
 
     const handleAddTask = () => {
         setEditingTask(null)
-        setShowTaskModal(true)
+        if (isTutorMode) {
+            setShowTaskModal(true)
+        } else {
+            setShowQuickTodoModal(true)
+        }
     }
 
     // Tarih navigasyon fonksiyonları
@@ -332,7 +365,6 @@ export default function TodayView({ userId, initialDate }: TodayViewProps) {
                 </SortableContext>
             </DndContext>
 
-            <AddQuickTodoButton initialDate={selectedDate} onTaskAdded={() => loadTasks(selectedDate)} />
             <AddTaskButton onClick={handleAddTask} />
 
             {showTaskModal && (

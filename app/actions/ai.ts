@@ -23,7 +23,7 @@ export interface AIAnalysisResult {
     }[]
 }
 
-export async function generateStudentAnalysis(studentId: string, coachNotes?: string): Promise<{ data?: AIAnalysisResult, error?: string }> {
+export async function generatePersonaAnalysis(personaId: string, tutorNotes?: string): Promise<{ data?: AIAnalysisResult, error?: string }> {
     try {
         if (!process.env.GOOGLE_GEMINI_API_KEY) {
             return { error: 'API Key not configured' }
@@ -33,7 +33,7 @@ export async function generateStudentAnalysis(studentId: string, coachNotes?: st
 
         // 1. Fetch Context Data
         // A. Exam Results
-        const examResults = await getStudentExamResults(studentId)
+        const examResults = await getStudentExamResults(personaId)
 
         // B. Recent Tasks (Last 14 days)
         const today = new Date()
@@ -43,16 +43,16 @@ export async function generateStudentAnalysis(studentId: string, coachNotes?: st
         const { data: recentTasks } = await supabase
             .from('tasks')
             .select('title, is_completed, subjects(name)')
-            .eq('user_id', studentId)
+            .eq('user_id', personaId)
             .gte('due_date', twoWeeksAgo.toISOString())
 
         // 2. Construct Prompt
         const prompt = `
-            Act as an expert educational coach. Analyze the following student data and provide insights AND a drafted weekly schedule.
+            Act as an expert educational tutor. Analyze the following persona data and provide insights AND a drafted weekly schedule.
             
-            COACH NOTES / FOCUS AREA: "${coachNotes || 'General analysis'}"
+            TUTOR NOTES / FOCUS AREA: "${tutorNotes || 'General analysis'}"
             
-            Student Data:
+            Persona Data:
             1. Exam Results (Newest first):
             ${JSON.stringify(examResults.slice(0, 3).map(r => ({
             exam: r.exam?.name,

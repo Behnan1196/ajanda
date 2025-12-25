@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { generateStudentAnalysis, AIAnalysisResult } from '@/app/actions/ai'
+import { generatePersonaAnalysis, AIAnalysisResult } from '@/app/actions/ai'
 import { createBulkTasks, CreateTaskInput } from '@/app/actions/tasks'
 
 // Helper to get date for next occurrence of a day
@@ -23,11 +23,11 @@ function getNextDate(dayName: string): Date {
     return targetDate
 }
 
-interface AIStudentAnalysisProps {
-    studentId: string
+interface AIPersonaAnalysisProps {
+    personaId: string
 }
 
-export default function AIStudentAnalysis({ studentId }: AIStudentAnalysisProps) {
+export default function AIPersonaAnalysis({ personaId }: AIPersonaAnalysisProps) {
     const [analyzing, setAnalyzing] = useState(false)
     const [applying, setApplying] = useState(false)
     const [result, setResult] = useState<AIAnalysisResult | null>(null)
@@ -41,7 +41,7 @@ export default function AIStudentAnalysis({ studentId }: AIStudentAnalysisProps)
         setSuccessMsg(null)
 
         try {
-            const response = await generateStudentAnalysis(studentId, coachNotes)
+            const response = await generatePersonaAnalysis(personaId, coachNotes)
             if (response.error) {
                 setError(response.error)
             } else {
@@ -70,7 +70,7 @@ export default function AIStudentAnalysis({ studentId }: AIStudentAnalysisProps)
 
                 day.tasks.forEach(task => {
                     tasksToCreate.push({
-                        user_id: studentId,
+                        user_id: personaId,
                         title: task,
                         description: `AI Önerisi - Odak: ${day.focus}`,
                         due_date: date.toISOString(),
@@ -84,7 +84,7 @@ export default function AIStudentAnalysis({ studentId }: AIStudentAnalysisProps)
             if (response.error) {
                 setError(response.error)
             } else {
-                setSuccessMsg('Haftalık program başarıyla uygulandı! Öğrencinin takvimine eklendi.')
+                setSuccessMsg('Haftalık program başarıyla uygulandı! Personanın takvimine eklendi.')
                 setResult(null) // Clear result to show freshness
                 setCoachNotes('')
             }
@@ -101,13 +101,13 @@ export default function AIStudentAnalysis({ studentId }: AIStudentAnalysisProps)
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                     <span className="text-2xl">🤖</span>
-                    <h2 className="text-lg font-bold text-gray-900">AI Koç Asistanı</h2>
+                    <h2 className="text-lg font-bold text-gray-900">AI Tutor Asistanı</h2>
                 </div>
             </div>
 
             <div className="bg-white p-4 rounded-lg border border-indigo-100 shadow-sm">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Koç Notu / Odak Noktası (Opsiyonel)
+                    Tutor Notu / Odak Noktası (Opsiyonel)
                 </label>
                 <div className="flex gap-2">
                     <input

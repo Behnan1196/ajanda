@@ -5,11 +5,11 @@ import { createClient } from '@/lib/supabase/client'
 import { useEffect, useState } from 'react'
 import SharedHeader from '@/components/SharedHeader'
 
-interface CoachLayoutProps {
+interface TutorLayoutProps {
     children: React.ReactNode
 }
 
-export default function CoachLayout({ children }: CoachLayoutProps) {
+export default function TutorLayout({ children }: TutorLayoutProps) {
     const router = useRouter()
     const [user, setUser] = useState<any>(null)
     const [roles, setRoles] = useState<string[]>([])
@@ -43,9 +43,9 @@ export default function CoachLayout({ children }: CoachLayoutProps) {
     }, [router, supabase])
 
     const navItems = [
-        { name: 'Öğrencilerim', href: '/coach', icon: '👥' },
-        { name: 'Program Kütüphanesi', href: '/coach/subjects', icon: '📚' },
-        // { name: 'Mesajlar', href: '/coach/messages', icon: '💬' },
+        { name: 'Personalarım', href: '/tutor', icon: '👥' },
+        { name: 'Program Kütüphanesi', href: '/tutor/subjects', icon: '📚' },
+        // { name: 'Mesajlar', href: '/tutor/messages', icon: '💬' },
     ]
 
     if (!user) {

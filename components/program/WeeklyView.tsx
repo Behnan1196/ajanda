@@ -5,7 +5,8 @@ import { createClient } from '@/lib/supabase/client'
 import WeeklyTaskCard from './WeeklyTaskCard'
 import TaskFormModal from './TaskFormModal'
 import QuickTodoModal from './QuickTodoModal'
-import AddQuickTodoButton from './AddQuickTodoButton'
+import { db } from '@/lib/db'
+import { useLiveQuery } from 'dexie-react-hooks'
 import {
     DndContext,
     closestCorners,
@@ -51,18 +52,70 @@ interface Task {
     relationship?: {
         role_label: string
     } | null
+    sort_order?: number
 }
 
 interface WeeklyViewProps {
     userId: string
     onDateSelect?: (date: Date) => void
     relationshipId?: string // Context
+    isTutorMode?: boolean
 }
 
-export default function WeeklyView({ userId, onDateSelect = () => { }, relationshipId }: WeeklyViewProps) {
+export default function WeeklyView({ userId, onDateSelect = () => { }, relationshipId, isTutorMode = false }: WeeklyViewProps) {
     const [currentWeekStart, setCurrentWeekStart] = useState(getStartOfWeek(new Date()))
     const [weekTasks, setWeekTasks] = useState<Map<string, Task[]>>(new Map())
     const [loading, setLoading] = useState(true)
+
+    const toLocalISOString = (date: Date) => {
+        const offset = date.getTimezoneOffset()
+        const localDate = new Date(date.getTime() - (offset * 60 * 1000))
+        return localDate.toISOString().split('T')[0]
+    }
+
+    // Local-first logic: Use IndexedDB if viewing own tasks
+    const startStr = toLocalISOString(currentWeekStart)
+    const end = new Date(currentWeekStart)
+    end.setDate(end.getDate() + 6)
+    const endStr = toLocalISOString(end)
+
+    const localTasks = useLiveQuery(
+        () => db.tasks.where('user_id').equals(userId).and(t => t.due_date! >= startStr && t.due_date! <= endStr).toArray(),
+        [userId, startStr, endStr]
+    )
+
+    useEffect(() => {
+        const enrichTasks = async () => {
+            if (localTasks) {
+                const tasksMap = new Map<string, Task[]>()
+
+                const enriched = await Promise.all(localTasks.map(async (t) => {
+                    const type = await db.task_types.get(t.task_type_id)
+                    const subject = t.subject_id ? await db.subjects.get(t.subject_id) : null
+                    return {
+                        ...t,
+                        task_types: type || { name: 'Görev', slug: 'todo', icon: '📝' },
+                        subjects: subject || null
+                    }
+                }))
+
+                enriched.forEach((task: any) => {
+                    if (task.due_date) {
+                        const current = tasksMap.get(task.due_date) || []
+                        current.push(task)
+                        tasksMap.set(task.due_date, current)
+                    }
+                })
+                // Sort tasks within each day by sort_order
+                tasksMap.forEach((tasks, date) => {
+                    tasks.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+                })
+                setWeekTasks(tasksMap)
+                setLoading(false)
+            }
+        }
+        enrichTasks()
+    }, [localTasks])
     const [showTaskModal, setShowTaskModal] = useState(false)
     const [showQuickTodoModal, setShowQuickTodoModal] = useState(false)
     const [selectedDate, setSelectedDate] = useState<Date>(new Date())
@@ -99,54 +152,46 @@ export default function WeeklyView({ userId, onDateSelect = () => { }, relations
         loadWeekTasks()
     }, [userId, currentWeekStart])
 
-    const toLocalISOString = (date: Date) => {
-        const offset = date.getTimezoneOffset()
-        const localDate = new Date(date.getTime() - (offset * 60 * 1000))
-        return localDate.toISOString().split('T')[0]
-    }
-
     const loadWeekTasks = async (silent = false) => {
-        if (!silent) setLoading(true)
+        if (isTutorMode && userId !== undefined) {
+            if (!silent) setLoading(true)
 
-        const start = new Date(currentWeekStart)
-        const end = new Date(start)
-        end.setDate(end.getDate() + 6)
-        end.setHours(23, 59, 59, 999)
+            const start = new Date(currentWeekStart)
+            const end = new Date(start)
+            end.setDate(end.getDate() + 6)
+            end.setHours(23, 59, 59, 999)
 
-        const startStr = toLocalISOString(start)
-        const endStr = toLocalISOString(end)
+            const startStr = toLocalISOString(start)
+            const endStr = toLocalISOString(end)
 
-        const { data, error } = await supabase
-            .from('tasks')
-            .select(`
-        *,
-        task_types (name, slug, icon),
-        subjects (name, icon, color),
-        topics (name),
-        relationship:relationship_id (role_label)
-      `)
-            .eq('user_id', userId)
-            .is('project_id', null)
-            .gte('due_date', startStr)
-            .lte('due_date', endStr)
-            .order('sort_order', { ascending: true })
-            .order('due_time', { ascending: true, nullsFirst: false })
+            const { data, error } = await supabase
+                .from('tasks')
+                .select(`
+            *,
+            task_types (name, slug, icon),
+            subjects (name, icon, color),
+            topics (name),
+            relationship:relationship_id (role_label)
+          `)
+                .eq('user_id', userId)
+                .is('project_id', null)
+                .gte('due_date', startStr)
+                .lte('due_date', endStr)
+                .order('sort_order', { ascending: true })
 
-        if (error) {
-            console.error('Error loading tasks:', error)
-        } else {
-            const tasksMap = new Map<string, Task[]>()
-            data?.forEach((task: any) => {
-                if (task.due_date) {
-                    const current = tasksMap.get(task.due_date) || []
-                    // Sort by sort_order within the code as well for safety
-                    current.push(task)
-                    tasksMap.set(task.due_date, current)
-                }
-            })
-            setWeekTasks(tasksMap)
+            if (!error && data) {
+                const tasksMap = new Map<string, Task[]>()
+                data.forEach((task: any) => {
+                    if (task.due_date) {
+                        const current = tasksMap.get(task.due_date) || []
+                        current.push(task)
+                        tasksMap.set(task.due_date, current)
+                    }
+                })
+                setWeekTasks(tasksMap)
+            }
+            if (!silent) setLoading(false)
         }
-        if (!silent) setLoading(false)
     }
 
     const getDaysInWeek = () => {
@@ -196,13 +241,15 @@ export default function WeeklyView({ userId, onDateSelect = () => { }, relations
     const handleTaskDelete = async (taskId: string) => {
         if (!confirm('Görevi silmek istediğinize emin misiniz?')) return
 
+        // Local Update
+        await db.tasks.delete(taskId)
+
         const { error } = await supabase
             .from('tasks')
             .delete()
             .eq('id', taskId)
 
-        if (!error) loadWeekTasks(true)
-        else alert('Silme hatası: ' + error.message)
+        if (error) console.error('Remote delete failed:', error)
     }
 
     const handleTaskSaved = () => {
@@ -213,26 +260,37 @@ export default function WeeklyView({ userId, onDateSelect = () => { }, relations
     }
 
     const handleTaskComplete = async (taskId: string) => {
+        const updateData = {
+            is_completed: true,
+            completed_at: new Date().toISOString(),
+            is_dirty: 1
+        }
+
+        await db.tasks.update(taskId, updateData)
+
         const { error } = await supabase
             .from('tasks')
-            .update({ is_completed: true, completed_at: new Date().toISOString() })
+            .update({ is_completed: true, completed_at: updateData.completed_at })
             .eq('id', taskId)
 
-        if (!error) loadWeekTasks(true) // Silent reload
+        if (!error) await db.tasks.update(taskId, { is_dirty: 0 })
     }
 
     const handleTaskUncomplete = async (taskId: string) => {
+        const updateData = {
+            is_completed: false,
+            completed_at: null,
+            is_dirty: 1
+        }
+
+        await db.tasks.update(taskId, updateData)
+
         const { error } = await supabase
             .from('tasks')
-            .update({
-                is_completed: false,
-                completed_at: null,
-            })
+            .update({ is_completed: false, completed_at: null })
             .eq('id', taskId)
 
-        if (!error) {
-            loadWeekTasks(true) // Silent reload
-        }
+        if (!error) await db.tasks.update(taskId, { is_dirty: 0 })
     }
 
     // Flatten all tasks for finding active task during drag
@@ -451,21 +509,15 @@ export default function WeeklyView({ userId, onDateSelect = () => { }, relations
                                             onClick={() => {
                                                 setSelectedDate(date)
                                                 setEditingTask(null)
-                                                setShowTaskModal(true)
+                                                if (isTutorMode) {
+                                                    setShowTaskModal(true)
+                                                } else {
+                                                    setShowQuickTodoModal(true)
+                                                }
                                             }}
                                             className="w-full py-1.5 border border-dashed border-gray-200 rounded-lg text-[10px] font-bold text-gray-400 hover:border-indigo-300 hover:text-indigo-600 hover:bg-white transition shadow-sm"
                                         >
-                                            + YAPISAL GÖREV
-                                        </button>
-                                        <button
-                                            onClick={() => {
-                                                setSelectedDate(date)
-                                                setEditingTask(null)
-                                                setShowQuickTodoModal(true)
-                                            }}
-                                            className="w-full py-1.5 border border-dashed border-gray-200 rounded-lg text-[10px] font-bold text-gray-400 hover:border-green-300 hover:text-green-600 hover:bg-white transition shadow-sm"
-                                        >
-                                            + HIZLI GÖREV
+                                            + GÖREV EKLE
                                         </button>
                                     </div>
                                 </div>
@@ -515,7 +567,6 @@ export default function WeeklyView({ userId, onDateSelect = () => { }, relations
                     initialDate={selectedDate}
                 />
             )}
-            <AddQuickTodoButton onTaskAdded={() => loadWeekTasks(true)} />
         </div>
     )
 }

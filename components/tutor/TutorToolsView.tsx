@@ -2,10 +2,10 @@
 
 import { useState, useEffect } from 'react'
 import { getCoachSubjects, deleteSubject } from '@/app/actions/subjects'
-import SubjectManager from '@/components/coach/SubjectManager'
+import SubjectManager from '@/components/tutor/SubjectManager'
 import { useRouter } from 'next/navigation'
 
-export default function CoachToolsView() {
+export default function TutorToolsView() {
     const router = useRouter()
     const [subjects, setSubjects] = useState<any[]>([])
     const [loading, setLoading] = useState(true)

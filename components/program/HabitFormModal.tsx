@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { db } from '@/lib/db'
 
 interface Subject {
     id: string
@@ -95,40 +96,58 @@ export default function HabitFormModal({
             target_count: targetType === 'count' ? targetCount : null,
             target_duration: targetType === 'duration' ? targetDuration : null,
             color,
-            icon: '⭐', // Default star icon (not used in minimalist UI)
+            icon: '⭐',
         }
 
-        if (isEditMode) {
+        if (isEditMode && editingHabit) {
+            // Local Update
+            await db.habits.update(editingHabit.id, { ...habitData, is_dirty: 1 })
+
             const { error } = await supabase
                 .from('habits')
                 .update(habitData)
                 .eq('id', editingHabit.id)
 
-            if (error) {
-                alert('Güncelleme hatası: ' + error.message)
-            } else {
+            if (!error) {
+                await db.habits.update(editingHabit.id, { is_dirty: 0 })
                 onSaved()
+            } else {
+                console.error('Remote habit update failed:', error)
+                onSaved() // Still close as local is updated
             }
         } else {
-            // Get max sort_order for this user to add new habit at bottom
-            const { data: maxOrderData } = await supabase
-                .from('habits')
-                .select('sort_order')
-                .eq('user_id', userId)
-                .order('sort_order', { ascending: false })
-                .limit(1)
-                .single()
+            // Get max sort_order from local first
+            const maxLocal = await db.habits.where('user_id').equals(userId).reverse().sortBy('sort_order')
+            const newSortOrder = (maxLocal[0]?.sort_order ?? -1) + 1
 
-            const newSortOrder = (maxOrderData?.sort_order ?? -1) + 1
-
-            const { error } = await supabase.from('habits').insert({
+            const habitId = crypto.randomUUID()
+            const fullHabitData = {
                 ...habitData,
-                sort_order: newSortOrder
+                id: habitId,
+                sort_order: newSortOrder,
+                is_active: true,
+                current_streak: 0,
+                longest_streak: 0,
+                total_completions: 0,
+                start_date: new Date().toISOString().split('T')[0],
+                end_date: null,
+                frequency_days: null
+            }
+
+            // Local Insert
+            await db.habits.add({
+                ...fullHabitData,
+                is_dirty: 1,
+                last_synced_at: null
             })
 
-            if (error) {
-                alert('Oluşturma hatası: ' + error.message)
+            const { error } = await supabase.from('habits').insert(fullHabitData)
+
+            if (!error) {
+                await db.habits.update(habitId, { is_dirty: 0, last_synced_at: new Date().toISOString() })
+                onSaved()
             } else {
+                console.error('Remote habit creation failed:', error)
                 onSaved()
             }
         }

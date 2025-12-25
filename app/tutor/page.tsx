@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import DashboardTabs from '@/components/DashboardTabs'
 
-export default async function CoachDashboard() {
+export default async function TutorDashboard() {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
@@ -11,6 +11,6 @@ export default async function CoachDashboard() {
     }
 
     return (
-        <DashboardTabs user={user} isCoachMode={true} />
+        <DashboardTabs user={user} isTutorMode={true} />
     )
 }

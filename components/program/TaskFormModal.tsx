@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { db } from '@/lib/db'
 
 interface TaskType {
     id: string
@@ -195,6 +196,10 @@ export default function TaskFormModal({ userId, editingTask, defaultDate, onClos
 
         if (isEditMode && editingTask) {
             // UPDATE mode
+            if (isOwnTask) {
+                await db.tasks.update(editingTask.id, { ...payload, is_dirty: 1 })
+            }
+
             const { error } = await supabase
                 .from('tasks')
                 .update(payload)
@@ -202,8 +207,9 @@ export default function TaskFormModal({ userId, editingTask, defaultDate, onClos
 
             if (error) {
                 console.error('Error updating task:', error)
-                alert('Görev güncellenirken hata oluştu')
+                if (!isOwnTask) alert('Görev güncellenirken hata oluştu')
             } else {
+                if (isOwnTask) await db.tasks.update(editingTask.id, { is_dirty: 0 })
                 onTaskSaved()
             }
         } else {
@@ -216,35 +222,56 @@ export default function TaskFormModal({ userId, editingTask, defaultDate, onClos
                 return
             }
 
-            // Get max sort_order for this user and date to add new task at bottom
-            const { data: maxOrderData } = await supabase
-                .from('tasks')
-                .select('sort_order')
-                .eq('user_id', userId)
-                .eq('due_date', payload.due_date)
-                .is('project_id', null)
-                .order('sort_order', { ascending: false })
-                .limit(1)
-                .single()
+            // Get max sort_order
+            let newSortOrder = 0
+            if (isOwnTask) {
+                const maxLocal = await db.tasks.where({ user_id: userId, due_date: payload.due_date }).reverse().sortBy('sort_order')
+                newSortOrder = (maxLocal[0]?.sort_order ?? -1) + 1
+            } else {
+                const { data: maxOrderData } = await supabase
+                    .from('tasks')
+                    .select('sort_order')
+                    .eq('user_id', userId)
+                    .eq('due_date', payload.due_date)
+                    .is('project_id', null)
+                    .order('sort_order', { ascending: false })
+                    .limit(1)
+                    .single()
+                newSortOrder = (maxOrderData?.sort_order ?? -1) + 1
+            }
 
-            const newSortOrder = (maxOrderData?.sort_order ?? -1) + 1
-
-            const { error } = await supabase.from('tasks').insert({
+            const taskId = isOwnTask ? crypto.randomUUID() : null
+            const taskData = {
                 ...payload,
                 user_id: userId,
                 created_by: currentUser.id,
                 assigned_by: currentUser.id !== userId ? currentUser.id : null,
                 relationship_id: relationshipId || null,
                 sort_order: newSortOrder
-            })
+            }
+
+            if (isOwnTask && taskId) {
+                await db.tasks.add({
+                    ...taskData,
+                    id: taskId,
+                    is_completed: false,
+                    completed_at: null,
+                    project_id: null,
+                    is_dirty: 1,
+                    last_synced_at: null
+                })
+            }
+
+            const { data: remoteData, error } = await supabase.from('tasks').insert(
+                isOwnTask ? { ...taskData, id: taskId } : taskData
+            ).select().single()
 
             if (error) {
                 console.error('Error creating task:', error)
-                alert('Görev oluşturulurken hata oluştu')
+                if (!isOwnTask) alert('Görev oluşturulurken hata oluştu')
             } else {
-                if (reminderTime) {
-                    // Note: This needs logic to get the task ID first, simplified here
-                    // In real implementation, insert returns data, we get ID from there
+                if (isOwnTask && taskId) {
+                    await db.tasks.update(taskId, { is_dirty: 0, last_synced_at: new Date().toISOString() })
                 }
                 onTaskSaved()
             }
