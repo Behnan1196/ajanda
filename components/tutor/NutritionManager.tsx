@@ -4,10 +4,10 @@ import { useState, useEffect } from 'react'
 import { getMeasurements, addMeasurement, getDietPlans, upsertDietPlan } from '@/app/actions/nutrition'
 
 interface NutritionManagerProps {
-    personaId: string
+    userId: string
 }
 
-export default function NutritionManager({ personaId }: NutritionManagerProps) {
+export default function NutritionManager({ userId }: NutritionManagerProps) {
     const [activeSection, setActiveSection] = useState<'measurements' | 'diet'>('measurements')
     const [measurements, setMeasurements] = useState<any[]>([])
     const [dietPlans, setDietPlans] = useState<any[]>([])
@@ -22,13 +22,13 @@ export default function NutritionManager({ personaId }: NutritionManagerProps) {
 
     useEffect(() => {
         loadData()
-    }, [personaId])
+    }, [userId])
 
     const loadData = async () => {
         setLoading(true)
         const [mRes, dRes] = await Promise.all([
-            getMeasurements(personaId),
-            getDietPlans(personaId)
+            getMeasurements(userId),
+            getDietPlans(userId)
         ])
         if (mRes.data) setMeasurements(mRes.data)
         if (dRes.data) setDietPlans(dRes.data)
@@ -38,7 +38,7 @@ export default function NutritionManager({ personaId }: NutritionManagerProps) {
     const handleAddMeasurement = async (e: React.FormEvent) => {
         e.preventDefault()
         const res = await addMeasurement(
-            personaId,
+            userId,
             parseFloat(weight),
             parseFloat(fat),
             parseFloat(waist),
@@ -162,14 +162,14 @@ export default function NutritionManager({ personaId }: NutritionManagerProps) {
                         </div>
                     </div>
                 ) : (
-                    <DietPlanEditor personaId={personaId} existingPlans={dietPlans} onUpdate={loadData} />
+                    <DietPlanEditor userId={userId} existingPlans={dietPlans} onUpdate={loadData} />
                 )}
             </div>
         </div>
     )
 }
 
-function DietPlanEditor({ personaId, existingPlans, onUpdate }: { personaId: string, existingPlans: any[], onUpdate: () => void }) {
+function DietPlanEditor({ userId, existingPlans, onUpdate }: { userId: string, existingPlans: any[], onUpdate: () => void }) {
     const days = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar']
     const mealTypes = ['Kahvaltı', 'Öğle', 'Akşam', 'Ara Öğün']
 
@@ -189,7 +189,7 @@ function DietPlanEditor({ personaId, existingPlans, onUpdate }: { personaId: str
     const handleSave = async (mealType: string) => {
         setSaving(true)
         const content = planData[selectedDay]?.[mealType] || ''
-        const res = await upsertDietPlan(personaId, selectedDay, mealType, content)
+        const res = await upsertDietPlan(userId, selectedDay, mealType, content)
         setSaving(false)
         if (res.success) onUpdate()
         else alert('Kaydetme hatası: ' + res.error)
