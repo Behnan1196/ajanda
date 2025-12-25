@@ -42,13 +42,28 @@ export async function getAssignedPersonas() {
         return { error: error.message }
     }
 
-    // Flatten the response
-    const mappedPersonas = personas.map((rel: any) => ({
-        id: rel.student.id,
-        name: rel.student.name,
-        email: rel.student.email,
-        relationshipId: rel.id,
-        role: rel.role_label || 'Genel Tutor'
+    // Flatten the response and group by student ID
+    const studentMap = new Map<string, any>()
+
+    personas.forEach((rel: any) => {
+        const studentId = rel.student.id
+        if (!studentMap.has(studentId)) {
+            studentMap.set(studentId, {
+                id: studentId,
+                name: rel.student.name,
+                email: rel.student.email,
+                relationshipId: rel.id, // Primary relationship ID
+                roles: [rel.role_label || 'Genel Tutor']
+            })
+        } else {
+            const existing = studentMap.get(studentId)
+            existing.roles.push(rel.role_label || 'Genel Tutor')
+        }
+    })
+
+    const mappedPersonas = Array.from(studentMap.values()).map(s => ({
+        ...s,
+        role: s.roles.join(', ')
     }))
 
     // Add the user themselves as a persona (Self-coaching)

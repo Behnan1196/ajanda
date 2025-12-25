@@ -266,9 +266,9 @@ export default function DashboardTabs({ user, isTutorMode = false, initialPerson
                                             Henüz personanız yok
                                         </div>
                                     ) : (
-                                        personas.map(persona => (
+                                        personas.map((persona, index) => (
                                             <button
-                                                key={persona.id}
+                                                key={`${persona.id}-${index}`}
                                                 onClick={() => setSelectedPersona(persona)}
                                                 className="flex items-center gap-4 p-4 bg-white border border-gray-200 rounded-xl hover:border-purple-300 hover:shadow-md transition text-left group"
                                             >
