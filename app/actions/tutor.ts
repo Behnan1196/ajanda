@@ -11,10 +11,10 @@ export async function getAssignedPersonas() {
         redirect('/login')
     }
 
-    // Check if user is coach (or admin)
+    // Check if user is coach (or admin) and get their own profile
     const { data: userData } = await supabase
         .from('users')
-        .select('roles')
+        .select('id, name, email, roles')
         .eq('id', user.id)
         .single()
 
@@ -43,15 +43,26 @@ export async function getAssignedPersonas() {
     }
 
     // Flatten the response
+    const mappedPersonas = personas.map((rel: any) => ({
+        id: rel.student.id,
+        name: rel.student.name,
+        email: rel.student.email,
+        relationshipId: rel.id,
+        role: rel.role_label || 'Genel Tutor'
+    }))
+
+    // Add the user themselves as a persona (Self-coaching)
+    const selfPersona = {
+        id: userData.id,
+        name: `${userData.name} (Kendim)`,
+        email: userData.email,
+        relationshipId: null, // No relationship required for self
+        role: 'Kişisel Gelişim'
+    }
+
     return {
         success: true,
-        data: personas.map((rel: any) => ({
-            id: rel.student.id,
-            name: rel.student.name,
-            email: rel.student.email,
-            relationshipId: rel.id,
-            role: rel.role_label || 'Genel Tutor'
-        }))
+        data: [selfPersona, ...mappedPersonas]
     }
 }
 
