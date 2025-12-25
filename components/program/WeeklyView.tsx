@@ -89,6 +89,10 @@ export default function WeeklyView({ userId, onDateSelect = () => { }, relations
             if (localTasks) {
                 const tasksMap = new Map<string, Task[]>()
 
+                // Pre-fill map with current week days
+                const days = getDaysInWeek()
+                days.forEach(d => tasksMap.set(toLocalISOString(d), []))
+
                 const enriched = await Promise.all(localTasks.map(async (t) => {
                     const type = await db.task_types.get(t.task_type_id)
                     const subject = t.subject_id ? await db.subjects.get(t.subject_id) : null
@@ -181,6 +185,10 @@ export default function WeeklyView({ userId, onDateSelect = () => { }, relations
 
             if (!error && data) {
                 const tasksMap = new Map<string, Task[]>()
+                // Pre-fill map with current week days
+                const days = getDaysInWeek()
+                days.forEach(d => tasksMap.set(toLocalISOString(d), []))
+
                 data.forEach((task: any) => {
                     if (task.due_date) {
                         const current = tasksMap.get(task.due_date) || []
@@ -297,6 +305,15 @@ export default function WeeklyView({ userId, onDateSelect = () => { }, relations
     const dataFlatten: Task[] = []
     weekTasks.forEach(tasks => dataFlatten.push(...tasks))
 
+    const findContainer = (id: string) => {
+        if (weekTasks.has(id)) return id
+        const task = dataFlatten.find(t => t.id === id)
+        if (task) return task.due_date
+        // Fallback for date strings that aren't in map yet but are valid format YYYY-MM-DD
+        if (id.match(/^\d{4}-\d{2}-\d{2}$/)) return id
+        return null
+    }
+
     const handleDragStart = (event: any) => {
         setActiveId(event.active.id)
     }
@@ -309,62 +326,37 @@ export default function WeeklyView({ userId, onDateSelect = () => { }, relations
         const overId = over.id
 
         // Find the containers
-        const activeContainer = active.data.current?.sortable?.containerId
-        let overContainer = over.data.current?.sortable?.containerId || overId
+        const activeContainer = findContainer(activeId as string)
+        const overContainer = findContainer(overId as string)
 
-        // If dropped over a task that doesn't have containerId in data, fallback
-        if (typeof overContainer === 'string' && !overContainer.startsWith('202')) {
-            const overTask = dataFlatten.find(t => t.id === overContainer)
-            if (overTask?.due_date) {
-                overContainer = overTask.due_date
-            }
-        }
-
-        if (!activeContainer || !overContainer) {
+        if (!activeContainer || !overContainer || activeContainer === overContainer) {
             return
         }
 
-        if (activeContainer !== overContainer) {
-            setWeekTasks((prev) => {
-                const updatedMap = new Map(prev)
-                const activeItems = [...(updatedMap.get(activeContainer) || [])]
-                const overItems = [...(updatedMap.get(overContainer) || [])]
+        setWeekTasks((prev) => {
+            const updatedMap = new Map(prev)
+            const activeItems = [...(updatedMap.get(activeContainer) || [])]
+            const overItems = [...(updatedMap.get(overContainer) || [])]
 
-                const activeIndex = activeItems.findIndex((item) => item.id === activeId)
-                let overIndex = overItems.findIndex((item) => item.id === overId)
+            const activeIndex = activeItems.findIndex((item) => item.id === activeId)
+            let overIndex = overItems.findIndex((item) => item.id === overId)
 
-                if (activeIndex !== -1) {
-                    const [item] = activeItems.splice(activeIndex, 1)
-                    const newItem = { ...item, due_date: overContainer }
+            if (activeIndex !== -1) {
+                const [item] = activeItems.splice(activeIndex, 1)
+                const newItem = { ...item, due_date: overContainer }
 
-                    if (overIndex === -1) {
-                        overItems.push(newItem)
-                    } else {
-                        overItems.splice(overIndex, 0, newItem)
-                    }
-
-                    updatedMap.set(activeContainer, activeItems)
-                    updatedMap.set(overContainer, overItems)
+                if (overIndex === -1) {
+                    overItems.push(newItem)
+                } else {
+                    overItems.splice(overIndex, 0, newItem)
                 }
 
-                return updatedMap
-            })
-        } else if (activeId !== overId) {
-            // Same day reorder real-time preview
-            setWeekTasks((prev) => {
-                const updatedMap = new Map(prev)
-                const items = [...(updatedMap.get(activeContainer) || [])]
-                const oldIndex = items.findIndex((item) => item.id === activeId)
-                const newIndex = items.findIndex((item) => item.id === overId)
+                updatedMap.set(activeContainer, activeItems)
+                updatedMap.set(overContainer, overItems)
+            }
 
-                if (oldIndex !== -1 && newIndex !== -1) {
-                    const newItems = arrayMove(items, oldIndex, newIndex)
-                    updatedMap.set(activeContainer, newItems)
-                }
-
-                return updatedMap
-            })
-        }
+            return updatedMap
+        })
     }
 
     const handleDragEnd = async (event: DragEndEvent) => {
@@ -373,39 +365,79 @@ export default function WeeklyView({ userId, onDateSelect = () => { }, relations
 
         if (!over) return
 
-        const taskId = active.id as string
+        const activeId = active.id as string
         const overId = over.id as string
 
-        // Find current container of active item
-        const activeTask = dataFlatten.find(t => t.id === taskId)
-        if (!activeTask) return
+        const activeContainer = findContainer(activeId)
+        const overContainer = findContainer(overId)
 
-        const activeContainer = activeTask.due_date!
-        let overContainer = over.data?.current?.sortable?.containerId || overId
+        if (!activeContainer || !overContainer) return
 
-        // Ensure overContainer is a valid date string
-        if (typeof overContainer === 'string' && !overContainer.startsWith('202')) {
-            const overTask = dataFlatten.find(t => t.id === overId)
-            if (overTask?.due_date) {
-                overContainer = overTask.due_date
+        // If moved to a different container or reordered within same
+        if (activeContainer !== overContainer || activeId !== overId) {
+            const items = [...(weekTasks.get(overContainer) || [])]
+            const oldIndex = items.findIndex(t => t.id === activeId)
+            const newIndex = items.findIndex(t => t.id === overId)
+
+            // Calculate final state from current UI
+            const finalItems = activeId !== overId && activeContainer === overContainer
+                ? arrayMove(items, oldIndex, newIndex)
+                : items
+
+            // 1. Update LOCAL DB (Dexie) if not in tutor mode
+            if (!isTutorMode) {
+                for (let i = 0; i < finalItems.length; i++) {
+                    const task = finalItems[i]
+                    await db.tasks.update(task.id, {
+                        sort_order: i,
+                        due_date: overContainer,
+                        is_dirty: 1
+                    })
+                }
+
+                // Also update origin container if it was a move
+                if (activeContainer !== overContainer) {
+                    const originItems = [...(weekTasks.get(activeContainer) || [])]
+                    for (let i = 0; i < originItems.length; i++) {
+                        await db.tasks.update(originItems[i].id, { sort_order: i, is_dirty: 1 })
+                    }
+                }
             }
-        }
 
-        if (active.id !== over.id || activeContainer !== overContainer) {
-            const dayTasks = [...(weekTasks.get(overContainer as string) || [])]
-
-            // Re-sort and update all items in target container
-            for (let i = 0; i < dayTasks.length; i++) {
-                await supabase
+            // 2. Update REMOTE DB (Supabase)
+            for (let i = 0; i < finalItems.length; i++) {
+                const task = finalItems[i]
+                const { error } = await supabase
                     .from('tasks')
                     .update({
                         sort_order: i,
-                        due_date: overContainer // Ensure due_date is updated too
+                        due_date: overContainer
                     })
-                    .eq('id', dayTasks[i].id)
+                    .eq('id', task.id)
+
+                if (!error && !isTutorMode) {
+                    await db.tasks.update(task.id, { is_dirty: 0 })
+                }
             }
 
-            loadWeekTasks(true)
+            if (activeContainer !== overContainer) {
+                const originItems = [...(weekTasks.get(activeContainer) || [])]
+                for (let i = 0; i < originItems.length; i++) {
+                    const { error } = await supabase
+                        .from('tasks')
+                        .update({ sort_order: i })
+                        .eq('id', originItems[i].id)
+
+                    if (!error && !isTutorMode) {
+                        await db.tasks.update(originItems[i].id, { is_dirty: 0 })
+                    }
+                }
+            }
+
+            // Refresh UI if in tutor mode (as we don't have reactive local storage for it)
+            if (isTutorMode) {
+                loadWeekTasks(true)
+            }
         }
     }
 
