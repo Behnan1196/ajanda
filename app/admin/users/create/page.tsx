@@ -99,12 +99,12 @@ export default function CreateUserPage() {
                             onChange={(e) => setFormData({ ...formData, role: e.target.value })}
                             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                         >
-                            <option value="student">Öğrenci</option>
-                            <option value="coach">Koç</option>
+                            <option value="student">Persona</option>
+                            <option value="coach">Tutor</option>
                             <option value="admin">Yönetici (Admin)</option>
                         </select>
                         <p className="text-xs text-gray-500 mt-1">
-                            * Yönetici: Tam yetki. Koç: Öğrenci yönetimi. Öğrenci: Sadece kendi alanı.
+                            * Yönetici: Tam yetki. Tutor: Persona yönetimi. Persona: Sadece kendi alanı.
                         </p>
                     </div>
 

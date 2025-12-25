@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { getLibraryItems, createLibraryItem, deleteLibraryItem } from '@/app/actions/library'
 import { createTopic, deleteTopic } from '@/app/actions/subjects'
-import LibraryItemForm from '@/components/coach/LibraryItemForm'
+import LibraryItemForm from '@/components/tutor/LibraryItemForm'
 
 // Icons
 const ICONS = {
@@ -210,7 +210,7 @@ export default function ProgramBuilderPage() {
                                         <div className="text-4xl mb-3">📝</div>
                                         <h3 className="text-gray-900 font-medium">Bu modül boş</h3>
                                         <p className="text-gray-500 text-sm mt-1">
-                                            Öğrencilerin bu modülü çalışırken yapması gereken<br />görevleri ekleyin (Video, Test, Okuma vb.)
+                                            Personaların bu modülü çalışırken yapması gereken<br />görevleri ekleyin (Video, Test, Okuma vb.)
                                         </p>
                                         <button
                                             onClick={() => handleAddItem(activeTopicId)}

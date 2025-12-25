@@ -16,12 +16,12 @@ const SPECIALTY_OPTIONS = [
 ]
 
 const ROLE_OPTIONS = [
-    { value: 'Genel Koç', label: 'Genel Koç' },
-    { value: 'Akademik Koç', label: 'Akademik Koç' },
-    { value: 'Spor Koçu', label: 'Spor Koçu' },
+    { value: 'Genel Koç', label: 'Genel Tutor' },
+    { value: 'Akademik Koç', label: 'Akademik Tutor' },
+    { value: 'Spor Koçu', label: 'Spor Tutoru' },
     { value: 'Diyetisyen', label: 'Diyetisyen' },
     { value: 'Mentör', label: 'Mentör' },
-    { value: 'Yaşam Koçu', label: 'Yaşam Koçu' }
+    { value: 'Yaşam Koçu', label: 'Yaşam Tutoru' }
 ]
 
 export default function EditUserPage() {
@@ -248,7 +248,7 @@ export default function EditUserPage() {
                                         className="rounded text-indigo-600 focus:ring-indigo-500"
                                     />
                                     <label htmlFor={`role_${role}`} className="text-sm text-gray-700 select-none cursor-pointer capitalize font-medium">
-                                        {role === 'student' ? 'Öğrenci' : role === 'coach' ? 'Koç' : 'Yönetici'}
+                                        {role === 'student' ? 'Persona' : role === 'coach' ? 'Tutor' : 'Yönetici'}
                                     </label>
                                 </div>
                             ))}
@@ -259,7 +259,7 @@ export default function EditUserPage() {
                     {formData.roles.includes('coach') && (
                         <div className="bg-indigo-50 rounded-xl p-4 border border-indigo-100">
                             <label className="block text-sm font-semibold text-indigo-900 mb-2">
-                                🎓 Koçluk Uzmanlık Alanları
+                                🎓 Tutorluk Uzmanlık Alanları
                             </label>
                             <p className="text-xs text-indigo-700 mb-3">Bu kullanıcının hangi alanlarda koçluk yapabileceğini seçin.</p>
                             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -311,14 +311,14 @@ export default function EditUserPage() {
                         <span className="p-1.5 bg-indigo-100 text-indigo-700 rounded-lg">
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
                         </span>
-                        Öğrencinin Koç Kadrosu
+                        Personanın Tutor Kadrosu
                     </h3>
 
                     {/* Assigned Coaches List */}
                     <div className="space-y-3 mb-6">
                         {assignedCoaches.length === 0 ? (
                             <p className="text-sm text-gray-500 italic p-4 bg-gray-50 rounded-lg border border-dashed border-gray-300 text-center">
-                                Henüz atanmış bir koç yok.
+                                Henüz atanmış bir tutor yok.
                             </p>
                         ) : (
                             assignedCoaches.map((assignment: any) => (
@@ -353,7 +353,7 @@ export default function EditUserPage() {
                     {/* Add New Coach Form */}
                     <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
                         <div className="flex items-center justify-between mb-3">
-                            <h4 className="text-sm font-semibold text-gray-900">Yeni Koç Ata</h4>
+                            <h4 className="text-sm font-semibold text-gray-900">Yeni Tutor Ata</h4>
 
                             {/* Filter Dropdown */}
                             <select
@@ -428,7 +428,7 @@ export default function EditUserPage() {
                             </div>
                         </div>
                         <p className="text-xs text-gray-500 mt-2">
-                            * Filtre kullanarak sadece ilgili branştaki koçları listeleyebilirsiniz.
+                            * Filtre kullanarak sadece ilgili branştaki tutorları listeleyebilirsiniz.
                         </p>
                     </div>
                 </div>

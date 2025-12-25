@@ -86,7 +86,7 @@ export default function AdminUsersPage() {
                                                 role === 'coach' ? 'bg-blue-100 text-blue-700' :
                                                     'bg-green-100 text-green-700'
                                                 }`}>
-                                                {role === 'admin' ? 'Yönetici' : role === 'coach' ? 'Koç' : 'Öğrenci'}
+                                                {role === 'admin' ? 'Yönetici' : role === 'coach' ? 'Tutor' : 'Persona'}
                                             </span>
                                         ))}
                                     </div>
