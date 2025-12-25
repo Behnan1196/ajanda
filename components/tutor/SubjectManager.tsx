@@ -23,6 +23,7 @@ export default function SubjectManager({ editingSubject, onClose, onSuccess }: S
     // Form State
     const [name, setName] = useState('')
     const [category, setCategory] = useState('')
+    const [moduleType, setModuleType] = useState<string>('general')
     const [icon, setIcon] = useState('book')
     const [color, setColor] = useState('#4F46E5')
     const [topics, setTopics] = useState<Topic[]>([])
@@ -33,6 +34,7 @@ export default function SubjectManager({ editingSubject, onClose, onSuccess }: S
         if (editingSubject) {
             setName(editingSubject.name)
             setCategory(editingSubject.category || '')
+            setModuleType(editingSubject.module_type || 'general')
             setIcon(editingSubject.icon || 'book')
             setColor(editingSubject.color || '#4F46E5')
             setTopics(editingSubject.topics || [])
@@ -53,13 +55,13 @@ export default function SubjectManager({ editingSubject, onClose, onSuccess }: S
 
         if (isEditMode) {
             // Update
-            const res = await updateSubject(editingSubject.id, { name, category, icon, color })
+            const res = await updateSubject(editingSubject.id, { name, category, module_type: moduleType as any, icon, color })
             setLoading(false)
             if (res.success) onSuccess()
         } else {
             // Create
             const topicsList = topics.map(t => t.name)
-            const res = await createSubject({ name, category, icon, color, topics: topicsList })
+            const res = await createSubject({ name, category, module_type: moduleType as any, icon, color, topics: topicsList })
             setLoading(false)
             if (res.success) onSuccess()
         }
@@ -148,30 +150,27 @@ export default function SubjectManager({ editingSubject, onClose, onSuccess }: S
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">Kategori</label>
-                                <input
-                                    value={category}
-                                    onChange={e => setCategory(e.target.value)}
-                                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500"
-                                    placeholder="Örn: TYT, Diyet"
-                                    list="category-suggestions"
-                                />
-                                <datalist id="category-suggestions">
-                                    <option value="TYT" />
-                                    <option value="AYT" />
-                                    <option value="Spor" />
-                                    <option value="Diyet" />
-                                    <option value="Dil Öğrenimi" />
-                                </datalist>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Uzmanlık Alanı (Modül)</label>
+                                <select
+                                    value={moduleType}
+                                    onChange={e => setModuleType(e.target.value)}
+                                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm"
+                                >
+                                    <option value="general">Genel / Akademik</option>
+                                    <option value="nutrition">Beslenme (Diyet)</option>
+                                    <option value="music">Müzik / Enstrüman</option>
+                                    <option value="fitness">Fitness / Spor</option>
+                                    <option value="academic">LGS / TYT / AYT</option>
+                                </select>
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Program Adı</label>
                                 <input
                                     value={name}
                                     onChange={e => setName(e.target.value)}
-                                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500"
+                                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 text-sm"
                                     required
-                                    placeholder="Örn: Biyoloji, 30 Günlük Yoga"
+                                    placeholder="Örn: 30 Günlük Yoga"
                                 />
                             </div>
                         </div>

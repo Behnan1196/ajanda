@@ -149,8 +149,8 @@ export default function DashboardTabs({ user, isTutorMode = false, initialPerson
                             <button
                                 onClick={() => alert('Görüntülü görüşme özelliği yakında aktif olacak')}
                                 className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold transition ${isTutorMode
-                                        ? 'bg-purple-100 text-purple-700 hover:bg-purple-200'
-                                        : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'
+                                    ? 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+                                    : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'
                                     }`}
                             >
                                 <span>📹</span>
@@ -338,7 +338,7 @@ export default function DashboardTabs({ user, isTutorMode = false, initialPerson
                                     ← Araçlara Dön
                                 </button>
                                 {isTutorMode ? (
-                                    selectedPersona ? <NutritionManager userId={selectedPersona.id} /> : <div className="text-center py-12 text-gray-500 text-sm">Önce bir persona seçmelisiniz.</div>
+                                    <NutritionManager userId={selectedPersona?.id || user.id} />
                                 ) : (
                                     <NutritionDiary userId={user.id} />
                                 )}
@@ -353,7 +353,7 @@ export default function DashboardTabs({ user, isTutorMode = false, initialPerson
                                     ← Araçlara Dön
                                 </button>
                                 {isTutorMode ? (
-                                    selectedPersona ? <MusicManager userId={selectedPersona.id} /> : <div className="text-center py-12 text-gray-500 text-sm">Önce bir persona seçmelisiniz.</div>
+                                    <MusicManager userId={selectedPersona?.id || user.id} />
                                 ) : (
                                     <MusicDiary userId={user.id} />
                                 )}

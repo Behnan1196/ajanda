@@ -7,6 +7,7 @@ export interface CreateSubjectInput {
     name: string
     description?: string
     category?: string
+    module_type?: 'nutrition' | 'music' | 'fitness' | 'academic' | 'general'
     color?: string
     icon?: string
     topics?: string[]
@@ -57,16 +58,21 @@ const SPECIALTY_TEMPLATES: Record<string, { subjects: any[] }> = {
     }
 }
 
-export async function getCoachSubjects() {
+export async function getCoachSubjects(moduleType?: string) {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) return []
 
-    const { data } = await supabase
+    let query = supabase
         .from('subjects')
         .select('*, topics(*)')
-        .order('created_at', { ascending: false })
+
+    if (moduleType) {
+        query = query.eq('module_type', moduleType)
+    }
+
+    const { data } = await query.order('created_at', { ascending: false })
 
     return data || []
 }
@@ -85,6 +91,7 @@ export async function createSubject(input: CreateSubjectInput) {
         .insert({
             ...subjectData,
             category: subjectData.category,
+            module_type: subjectData.module_type || 'general',
             created_by: user.id,
             is_system: false
         })
