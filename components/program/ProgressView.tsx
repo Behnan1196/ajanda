@@ -13,7 +13,9 @@ import {
     ResponsiveContainer,
     PieChart,
     Pie,
-    Cell
+    Cell,
+    LineChart,
+    Line
 } from 'recharts'
 
 interface ProgressViewProps {
@@ -25,6 +27,8 @@ export default function ProgressView({ userId }: ProgressViewProps) {
     const [weeklyData, setWeeklyData] = useState<any[]>([])
     const [subjectData, setSubjectData] = useState<any[]>([])
     const [habitData, setHabitData] = useState<any[]>([])
+    const [measurementData, setMeasurementData] = useState<any[]>([])
+    const [practiceData, setPracticeData] = useState<any[]>([])
 
     const supabase = createClient()
     const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d']
@@ -38,7 +42,9 @@ export default function ProgressView({ userId }: ProgressViewProps) {
         await Promise.all([
             loadWeeklyCompletion(),
             loadSubjectDistribution(),
-            loadHabitStats()
+            loadHabitStats(),
+            loadMeasurementHistory(),
+            loadPracticeHistory()
         ])
         setLoading(false)
     }
@@ -99,6 +105,22 @@ export default function ProgressView({ userId }: ProgressViewProps) {
         setSubjectData(chartData)
     }
 
+    const loadMeasurementHistory = async () => {
+        const { data: measurements } = await supabase
+            .from('nutrition_measurements')
+            .select('*')
+            .eq('user_id', userId)
+            .order('recorded_at', { ascending: true })
+
+        const chartData = measurements?.map(m => ({
+            date: new Date(m.recorded_at).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' }),
+            Kilo: m.weight,
+            Bel: m.waist_circumference
+        })) || []
+
+        setMeasurementData(chartData)
+    }
+
     const loadHabitStats = async () => {
         const { data: habits } = await supabase
             .from('habits')
@@ -109,6 +131,22 @@ export default function ProgressView({ userId }: ProgressViewProps) {
             .limit(5)
 
         setHabitData(habits || [])
+    }
+
+    const loadPracticeHistory = async () => {
+        const { data: logs } = await supabase
+            .from('music_practice_logs')
+            .select('log_date, duration_minutes')
+            .eq('user_id', userId)
+            .order('log_date', { ascending: true })
+            .limit(10)
+
+        const chartData = logs?.map(l => ({
+            date: new Date(l.log_date).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' }),
+            Dakika: l.duration_minutes
+        })) || []
+
+        setPracticeData(chartData)
     }
 
     if (loading) {
@@ -173,6 +211,55 @@ export default function ProgressView({ userId }: ProgressViewProps) {
                         </div>
                     )}
                 </div>
+            </div>
+
+            {/* Nutrition & Measurements Chart */}
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-800 mb-4">Kilo ve Ölçüm Takibi ⚖️</h3>
+                {measurementData.length > 0 ? (
+                    <div className="h-[300px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={measurementData}>
+                                <CartesianGrid strokeDasharray="3 3" />
+                                <XAxis dataKey="date" />
+                                <YAxis yAxisId="left" orientation="left" stroke="#8884d8" />
+                                <YAxis yAxisId="right" orientation="right" stroke="#82ca9d" />
+                                <Tooltip />
+                                <Legend />
+                                <Line yAxisId="left" type="monotone" dataKey="Kilo" stroke="#8884d8" strokeWidth={3} dot={{ r: 6 }} activeDot={{ r: 8 }} />
+                                <Line yAxisId="right" type="monotone" dataKey="Bel" stroke="#82ca9d" strokeWidth={2} strokeDasharray="5 5" />
+                            </LineChart>
+                        </ResponsiveContainer>
+                    </div>
+                ) : (
+                    <div className="h-[200px] flex flex-col items-center justify-center text-gray-400 bg-gray-50 rounded-lg border border-dashed border-gray-200">
+                        <span className="text-3xl mb-2">📊</span>
+                        <p className="text-sm">Henüz ölçüm kaydı bulunmuyor.</p>
+                    </div>
+                )}
+            </div>
+
+            {/* Music Practice Chart */}
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-800 mb-4">Enstrüman Pratik Süresi 🎸</h3>
+                {practiceData.length > 0 ? (
+                    <div className="h-[250px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={practiceData}>
+                                <CartesianGrid strokeDasharray="3 3" />
+                                <XAxis dataKey="date" />
+                                <YAxis />
+                                <Tooltip />
+                                <Bar dataKey="Dakika" fill="#8B5CF6" radius={[4, 4, 0, 0]} />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+                ) : (
+                    <div className="h-[150px] flex flex-col items-center justify-center text-gray-400 bg-gray-50 rounded-lg border border-dashed border-gray-200">
+                        <span className="text-2xl mb-2">🎵</span>
+                        <p className="text-sm">Henüz pratik kaydı bulunmuyor.</p>
+                    </div>
+                )}
             </div>
 
             {/* Habit Stats */}

@@ -6,6 +6,7 @@ import SortableTaskCard from './SortableTaskCard'
 import AddTaskButton from './AddTaskButton'
 import TaskFormModal from './TaskFormModal'
 import QuickTodoModal from './QuickTodoModal'
+import DailyNutritionCard from './DailyNutritionCard'
 import { db } from '@/lib/db'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
@@ -340,6 +341,9 @@ export default function TodayView({ userId, initialDate, isTutorMode = false }: 
                     </div>
                 )}
             </div>
+
+            {/* Daily Nutrition Summary (Modular) */}
+            <DailyNutritionCard userId={userId} date={selectedDate} />
 
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                 <SortableContext items={tasks.map(t => t.id)} strategy={verticalListSortingStrategy}>

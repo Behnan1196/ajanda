@@ -5,7 +5,11 @@ import { getCoachSubjects, deleteSubject } from '@/app/actions/subjects'
 import SubjectManager from '@/components/tutor/SubjectManager'
 import { useRouter } from 'next/navigation'
 
-export default function TutorToolsView() {
+interface TutorToolsViewProps {
+    onSelectTool?: (tool: string) => void
+}
+
+export default function TutorToolsView({ onSelectTool }: TutorToolsViewProps) {
     const router = useRouter()
     const [subjects, setSubjects] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
@@ -41,7 +45,30 @@ export default function TutorToolsView() {
     }
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-8">
+            {/* Quick Modules Section */}
+            <div>
+                <h2 className="text-xl font-bold text-gray-900 mb-4">Uzmanlık Araçları</h2>
+                <div className="grid grid-cols-2 gap-4">
+                    <button
+                        onClick={() => onSelectTool?.('nutrition')}
+                        className="bg-white border border-gray-200 rounded-2xl p-6 text-center hover:border-purple-500 transition shadow-sm group"
+                    >
+                        <span className="text-3xl block mb-2 group-hover:scale-110 transition">🍏</span>
+                        <h3 className="font-bold text-gray-900">Beslenme Yönetimi</h3>
+                        <p className="text-[10px] text-gray-500 mt-1">Ölçüm girişi ve diyet planı</p>
+                    </button>
+                    <button
+                        onClick={() => onSelectTool?.('music')}
+                        className="bg-white border border-gray-200 rounded-2xl p-6 text-center hover:border-purple-500 transition shadow-sm group"
+                    >
+                        <span className="text-3xl block mb-2 group-hover:scale-110 transition">🎸</span>
+                        <h3 className="font-bold text-gray-900">Enstrüman Eğitimi</h3>
+                        <p className="text-[10px] text-gray-500 mt-1">Repertuvar ve teknik gelişim</p>
+                    </button>
+                </div>
+            </div>
+
             <div className="flex items-center justify-between">
                 <h2 className="text-xl font-bold text-gray-900">Program Kütüphanesi</h2>
                 <button

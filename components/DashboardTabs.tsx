@@ -14,6 +14,11 @@ import AIPersonaAnalysis from './tutor/AIPersonaAnalysis'
 import { subscribeUserToPush } from '@/lib/notifications'
 import LifeHubView from './program/LifeHubView'
 import TutorToolsView from './tutor/TutorToolsView'
+import NutritionManager from './tutor/NutritionManager'
+import NutritionDiary from './program/NutritionDiary'
+import MusicManager from './tutor/MusicManager'
+import MusicDiary from './program/MusicDiary'
+import DailyPracticeCard from './program/DailyPracticeCard'
 import { useOfflineSync } from '@/hooks/useOfflineSync'
 
 type TabType = 'program' | 'gelisim' | 'iletisim' | 'araclar'
@@ -39,6 +44,7 @@ export default function DashboardTabs({ user, isTutorMode = false, initialPerson
     const [personas, setPersonas] = useState<any[]>([])
     const [selectedPersona, setSelectedPersona] = useState<any>(null)
     const [loadingPersonas, setLoadingPersonas] = useState(false)
+    const [activeTool, setActiveTool] = useState<string | null>(null)
 
     const themeColor = isTutorMode ? 'purple' : 'indigo'
     const targetUserId = selectedPersona ? selectedPersona.id : user.id
@@ -283,6 +289,9 @@ export default function DashboardTabs({ user, isTutorMode = false, initialPerson
                                     {activeProgramTab === 'bugun' && (
                                         <div className="p-4 pt-0">
                                             <TodayView userId={targetUserId} initialDate={selectedDate} isTutorMode={isTutorMode} />
+                                            <div className="mt-4">
+                                                <DailyPracticeCard userId={targetUserId} date={selectedDate || new Date()} />
+                                            </div>
                                         </div>
                                     )}
                                     {activeProgramTab === 'haftalik' && (
@@ -314,25 +323,61 @@ export default function DashboardTabs({ user, isTutorMode = false, initialPerson
                     </div>
                 )}
 
-                {activeTab === 'iletisim' && (
-                    <div className="p-4 text-center py-12 text-gray-500">
-                        {isTutorMode && selectedPersona ? (
-                            <div className="space-y-4">
-                                <div className={`w-16 h-16 bg-${themeColor}-100 text-${themeColor}-600 rounded-full flex items-center justify-center mx-auto text-2xl font-bold`}>
-                                    {selectedPersona.name.charAt(0)}
-                                </div>
-                                <h3 className="text-lg font-medium text-gray-900">{selectedPersona.name} ile İletişim</h3>
-                                <p className="text-sm">Mesajlaşma ve görüntülü görüşme modülü yakında eklenecek</p>
-                            </div>
-                        ) : (
-                            "İletişim modülü yakında eklenecek"
-                        )}
-                    </div>
-                )}
-
                 {activeTab === 'araclar' && (
                     <div className="p-4">
-                        {isTutorMode ? <TutorToolsView /> : <LifeHubView />}
+                        {activeTool === 'nutrition' && (
+                            <div className="space-y-4">
+                                <button
+                                    onClick={() => setActiveTool(null)}
+                                    className="flex items-center gap-2 text-sm font-bold text-gray-500 hover:text-gray-700 mb-4"
+                                >
+                                    ← Araçlara Dön
+                                </button>
+                                {isTutorMode ? (
+                                    selectedPersona ? <NutritionManager userId={selectedPersona.id} /> : <div className="text-center py-12 text-gray-500 text-sm">Önce bir persona seçmelisiniz.</div>
+                                ) : (
+                                    <NutritionDiary userId={user.id} />
+                                )}
+                            </div>
+                        )}
+                        {activeTool === 'music' && (
+                            <div className="space-y-4">
+                                <button
+                                    onClick={() => setActiveTool(null)}
+                                    className="flex items-center gap-2 text-sm font-bold text-gray-500 hover:text-gray-700 mb-4"
+                                >
+                                    ← Araçlara Dön
+                                </button>
+                                {isTutorMode ? (
+                                    selectedPersona ? <MusicManager userId={selectedPersona.id} /> : <div className="text-center py-12 text-gray-500 text-sm">Önce bir persona seçmelisiniz.</div>
+                                ) : (
+                                    <MusicDiary userId={user.id} />
+                                )}
+                            </div>
+                        )}
+                        {!activeTool && (
+                            isTutorMode ? <TutorToolsView onSelectTool={(tool) => setActiveTool(tool)} /> : <div className="space-y-4">
+                                <h2 className="text-xl font-bold text-gray-900">Araçlarım</h2>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <button
+                                        onClick={() => setActiveTool('nutrition')}
+                                        className="bg-white border border-gray-200 rounded-2xl p-6 text-center hover:border-indigo-500 transition shadow-sm group"
+                                    >
+                                        <span className="text-3xl block mb-2 group-hover:scale-110 transition">🍏</span>
+                                        <h3 className="font-bold text-gray-900">Diyet Günlüğüm</h3>
+                                        <p className="text-[10px] text-gray-500 mt-1">Ölçüm ve yemek takibi</p>
+                                    </button>
+                                    <button
+                                        onClick={() => setActiveTool('music')}
+                                        className="bg-white border border-gray-200 rounded-2xl p-6 text-center hover:border-indigo-500 transition shadow-sm group"
+                                    >
+                                        <span className="text-3xl block mb-2 group-hover:scale-110 transition">🎸</span>
+                                        <h3 className="font-bold text-gray-900">Enstrüman Günlüğüm</h3>
+                                        <p className="text-[10px] text-gray-500 mt-1">Repertuvar ve pratik takibi</p>
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
