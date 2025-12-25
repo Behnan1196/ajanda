@@ -65,22 +65,39 @@ export default function CompactHabitGrid({ userId, onEdit }: CompactHabitGridPro
 
     const dayNames = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz']
 
+    const habitsQuery = useLiveQuery(
+        () => db.habits.where('user_id').equals(userId).toArray(),
+        [userId]
+    )
+
+    const completionsQuery = useLiveQuery(
+        () => db.habit_completions.where('user_id').equals(userId).toArray(),
+        [userId]
+    )
+
     useEffect(() => {
-        loadData()
-    }, [userId, weekStart])
+        if (habitsQuery) {
+            const activeHabits = habitsQuery
+                .filter(h => h.is_active !== false)
+                .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
+            setHabits(activeHabits)
+            setLoading(false)
+        }
+    }, [habitsQuery])
+
+    useEffect(() => {
+        if (completionsQuery) {
+            const compMap = new Map<string, Set<string>>()
+            completionsQuery.forEach(c => {
+                if (!compMap.has(c.habit_id)) compMap.set(c.habit_id, new Set())
+                compMap.get(c.habit_id)!.add(c.completed_date)
+            })
+            setCompletions(compMap)
+        }
+    }, [completionsQuery])
 
     const loadData = async () => {
-        // Initial fetch handled by useLiveQuery subscription
-        // We could still fetch from Supabase here to ensure background sync 
-        // but our useOfflineSync hook in DashboardTabs already handles it.
-    }
-
-    const loadHabits = async () => {
-        // Handled by local-first
-    }
-
-    const loadCompletions = async () => {
-        // Handled by local-first
+        // Data is handled by useLiveQuery reactive hooks
     }
 
     const isCompleted = (habitId: string, date: Date) => {

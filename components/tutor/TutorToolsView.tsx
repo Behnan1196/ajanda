@@ -66,6 +66,14 @@ export default function TutorToolsView({ onSelectTool }: TutorToolsViewProps) {
                         <h3 className="font-bold text-gray-900">Enstrüman Eğitimi</h3>
                         <p className="text-[10px] text-gray-500 mt-1">Repertuvar ve teknik gelişim</p>
                     </button>
+                    <button
+                        onClick={() => onSelectTool?.('projects')}
+                        className="bg-white border border-gray-200 rounded-2xl p-6 text-center hover:border-purple-500 transition shadow-sm group"
+                    >
+                        <span className="text-3xl block mb-2 group-hover:scale-110 transition">🏗️</span>
+                        <h3 className="font-bold text-gray-900">Projelerim</h3>
+                        <p className="text-[10px] text-gray-500 mt-1">Süreç ve planlama yönetimi</p>
+                    </button>
                 </div>
             </div>
 

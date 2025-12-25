@@ -20,6 +20,9 @@ import MusicManager from './tutor/MusicManager'
 import MusicDiary from './program/MusicDiary'
 import DailyPracticeCard from './program/DailyPracticeCard'
 import { useOfflineSync } from '@/hooks/useOfflineSync'
+import ProjectListView from './program/ProjectListView'
+import ProjectDetailsView from './program/ProjectDetailsView'
+import { Project } from '@/app/actions/projects'
 
 type TabType = 'program' | 'gelisim' | 'iletisim' | 'araclar'
 type ProgramTabType = 'bugun' | 'haftalik' | 'aylik' | 'aliskanliklar'
@@ -45,6 +48,7 @@ export default function DashboardTabs({ user, isTutorMode = false, initialPerson
     const [selectedPersona, setSelectedPersona] = useState<any>(null)
     const [loadingPersonas, setLoadingPersonas] = useState(false)
     const [activeTool, setActiveTool] = useState<string | null>(null)
+    const [selectedProject, setSelectedProject] = useState<Project | null>(null)
 
     const themeColor = isTutorMode ? 'purple' : 'indigo'
     const targetUserId = selectedPersona ? selectedPersona.id : user.id
@@ -355,6 +359,24 @@ export default function DashboardTabs({ user, isTutorMode = false, initialPerson
                                 )}
                             </div>
                         )}
+                        {activeTool === 'projects' && (
+                            <div className="space-y-4">
+                                <button
+                                    onClick={() => {
+                                        if (selectedProject) setSelectedProject(null)
+                                        else setActiveTool(null)
+                                    }}
+                                    className="flex items-center gap-2 text-sm font-bold text-gray-500 hover:text-gray-700 mb-4"
+                                >
+                                    ← {selectedProject ? 'Projelere Dön' : 'Araçlara Dön'}
+                                </button>
+                                {selectedProject ? (
+                                    <ProjectDetailsView project={selectedProject} onBack={() => setSelectedProject(null)} />
+                                ) : (
+                                    <ProjectListView onProjectSelect={setSelectedProject} />
+                                )}
+                            </div>
+                        )}
                         {!activeTool && (
                             isTutorMode ? <TutorToolsView onSelectTool={(tool) => setActiveTool(tool)} /> : <div className="space-y-4">
                                 <h2 className="text-xl font-bold text-gray-900">Araçlarım</h2>
@@ -374,6 +396,14 @@ export default function DashboardTabs({ user, isTutorMode = false, initialPerson
                                         <span className="text-3xl block mb-2 group-hover:scale-110 transition">🎸</span>
                                         <h3 className="font-bold text-gray-900">Enstrüman Günlüğüm</h3>
                                         <p className="text-[10px] text-gray-500 mt-1">Repertuvar ve pratik takibi</p>
+                                    </button>
+                                    <button
+                                        onClick={() => setActiveTool('projects')}
+                                        className="bg-white border border-gray-200 rounded-2xl p-6 text-center hover:border-indigo-500 transition shadow-sm group"
+                                    >
+                                        <span className="text-3xl block mb-2 group-hover:scale-110 transition">🏗️</span>
+                                        <h3 className="font-bold text-gray-900">Projelerim</h3>
+                                        <p className="text-[10px] text-gray-500 mt-1">Hedef ve süreç yönetimi</p>
                                     </button>
                                 </div>
                             </div>
