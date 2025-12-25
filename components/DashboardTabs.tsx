@@ -113,18 +113,16 @@ export default function DashboardTabs({ user, isTutorMode = false, initialPerson
     }
 
     return (
-        <div className="flex flex-col h-screen">
+        <div className={`flex flex-col h-screen ${isTutorMode ? 'bg-slate-50' : 'bg-gray-50'}`}>
             {/* Header */}
-            <header className="bg-white border-b border-gray-200 px-4 pt-12 pb-3 relative z-30">
+            <header className={`bg-white border-b border-gray-200 px-4 pt-12 pb-3 relative z-30 ${isTutorMode ? 'border-purple-100' : 'border-indigo-100'}`}>
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         {isTutorMode && selectedPersona && (
                             <button
                                 onClick={() => {
                                     setSelectedPersona(null)
-                                    if (activeTab === 'gelisim' || activeTab === 'iletisim') {
-                                        setActiveTab('program')
-                                    }
+                                    setActiveTab('program')
                                 }}
                                 className="p-1 hover:bg-gray-100 rounded-full transition"
                             >
@@ -135,7 +133,7 @@ export default function DashboardTabs({ user, isTutorMode = false, initialPerson
                         )}
                         <div>
                             <h1 className="text-xl font-bold text-gray-900 leading-none">
-                                {isTutorMode ? (selectedPersona ? selectedPersona.name : 'Personalarım') : 'Yaşam Planlayıcı'}
+                                {isTutorMode ? (selectedPersona ? selectedPersona.name : 'Yönetim Masası') : 'Haftalık Planım'}
                             </h1>
                             {isTutorMode && selectedPersona && (
                                 <span className={`text-[10px] font-bold uppercase tracking-wider text-${themeColor}-600`}>
@@ -144,56 +142,58 @@ export default function DashboardTabs({ user, isTutorMode = false, initialPerson
                             )}
                         </div>
                     </div>
-                    <div className="relative" ref={dropdownRef}>
-                        <button
-                            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                            className="flex items-center gap-3 hover:bg-gray-50 p-1 rounded-lg transition"
-                        >
-                            <span className="text-sm text-gray-600 hidden sm:block">{user.email}</span>
-                            <div className={`w-8 h-8 bg-${themeColor}-600 rounded-full flex items-center justify-center text-white text-sm font-medium`}>
-                                {user.email?.[0].toUpperCase()}
-                            </div>
-                        </button>
 
-                        {/* Dropdown Menu */}
-                        {isDropdownOpen && (
-                            <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-100 py-1">
-                                <div className="px-4 py-2 border-b border-gray-100 sm:hidden">
-                                    <p className="text-sm text-gray-600 truncate">{user.email}</p>
-                                </div>
-                                {userProfile?.roles?.includes('admin') && (
-                                    <button
-                                        onClick={() => router.push('/admin')}
-                                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 transition flex items-center gap-2"
-                                    >
-                                        <span>📊</span> Admin Paneli
-                                    </button>
-                                )}
-                                {userProfile?.roles?.includes('coach') && (
-                                    <button
-                                        onClick={() => {
-                                            router.push(isTutorMode ? '/' : '/tutor')
-                                            setIsDropdownOpen(false)
-                                        }}
-                                        className={`w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-${themeColor}-50 hover:text-${themeColor}-600 transition flex items-center gap-2`}
-                                    >
-                                        <span>{isTutorMode ? '📅' : '🎓'}</span> {isTutorMode ? 'Kendi Ajandam' : 'Tutor Paneli'}
-                                    </button>
-                                )}
-                                <button
-                                    onClick={() => alert('Ayarlar sayfası yakında eklenecek')}
-                                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 transition flex items-center gap-2"
-                                >
-                                    <span>⚙️</span> Ayarlar
-                                </button>
-                                <button
-                                    onClick={handleLogout}
-                                    className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition flex items-center gap-2"
-                                >
-                                    <span>🚪</span> Çıkış Yap
-                                </button>
-                            </div>
+                    <div className="flex items-center gap-2">
+                        {/* Contextual Communication Button */}
+                        {(isTutorMode ? selectedPersona : true) && (
+                            <button
+                                onClick={() => alert('Görüntülü görüşme özelliği yakında aktif olacak')}
+                                className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold transition ${isTutorMode
+                                        ? 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+                                        : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'
+                                    }`}
+                            >
+                                <span>📹</span>
+                                <span className="hidden sm:inline">Görüşme</span>
+                            </button>
                         )}
+
+                        <div className="relative" ref={dropdownRef}>
+                            <button
+                                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                                className="flex items-center gap-3 hover:bg-gray-50 p-1 rounded-lg transition"
+                            >
+                                <div className={`w-8 h-8 bg-${themeColor}-600 rounded-full flex items-center justify-center text-white text-sm font-medium`}>
+                                    {user.email?.[0].toUpperCase()}
+                                </div>
+                            </button>
+
+                            {isDropdownOpen && (
+                                <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-100 py-1">
+                                    <div className="px-4 py-2 border-b border-gray-100">
+                                        <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider">Hesabım</p>
+                                        <p className="text-sm text-gray-600 truncate">{user.email}</p>
+                                    </div>
+                                    {userProfile?.roles?.includes('coach') && (
+                                        <button
+                                            onClick={() => {
+                                                router.push(isTutorMode ? '/' : '/tutor')
+                                                setIsDropdownOpen(false)
+                                            }}
+                                            className={`w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-${themeColor}-50 hover:text-${themeColor}-600 transition flex items-center gap-2`}
+                                        >
+                                            <span>{isTutorMode ? '📅' : '🎓'}</span> {isTutorMode ? 'Kendi Ajandam' : 'Tutor Paneli'}
+                                        </button>
+                                    )}
+                                    <button
+                                        onClick={handleLogout}
+                                        className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition flex items-center gap-2 border-t border-gray-50 mt-1"
+                                    >
+                                        <span>🚪</span> Çıkış Yap
+                                    </button>
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
             </header>
@@ -417,13 +417,13 @@ export default function DashboardTabs({ user, isTutorMode = false, initialPerson
                 <div className="flex items-center justify-around max-w-2xl mx-auto">
                     <button
                         onClick={() => setActiveTab('program')}
-                        className={`flex flex-col items-center gap-1 py-2 px-4 rounded-lg transition ${activeTab === 'program' ? `text-${themeColor}-600` : 'text-gray-600'
+                        className={`flex flex-col items-center gap-1 py-1.5 px-4 rounded-xl transition ${activeTab === 'program' ? `text-${themeColor}-600 bg-${themeColor}-50` : 'text-gray-400 hover:text-gray-600'
                             }`}
                     >
                         <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                         </svg>
-                        <span className="text-xs font-medium">Program</span>
+                        <span className="text-[10px] font-bold uppercase tracking-tight">{isTutorMode ? 'Planlayıcı' : 'Program'}</span>
                     </button>
 
                     <button
@@ -431,40 +431,24 @@ export default function DashboardTabs({ user, isTutorMode = false, initialPerson
                             if (isTutorMode && !selectedPersona) return
                             setActiveTab('gelisim')
                         }}
-                        className={`flex flex-col items-center gap-1 py-2 px-4 rounded-lg transition ${activeTab === 'gelisim' ? `text-${themeColor}-600` : 'text-gray-600'
-                            } ${isTutorMode && !selectedPersona ? 'opacity-40 cursor-not-allowed' : ''}`}
-                        title={isTutorMode && !selectedPersona ? 'Önce bir persona seçmelisiniz' : ''}
+                        className={`flex flex-col items-center gap-1 py-1.5 px-4 rounded-xl transition ${activeTab === 'gelisim' ? `text-${themeColor}-600 bg-${themeColor}-50` : 'text-gray-400 hover:text-gray-600'
+                            } ${isTutorMode && !selectedPersona ? 'opacity-20 cursor-not-allowed' : ''}`}
                     >
                         <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
                         </svg>
-                        <span className="text-xs font-medium">Gelişim</span>
-                    </button>
-
-                    <button
-                        onClick={() => {
-                            if (isTutorMode && !selectedPersona) return
-                            setActiveTab('iletisim')
-                        }}
-                        className={`flex flex-col items-center gap-1 py-2 px-4 rounded-lg transition ${activeTab === 'iletisim' ? `text-${themeColor}-600` : 'text-gray-600'
-                            } ${isTutorMode && !selectedPersona ? 'opacity-40 cursor-not-allowed' : ''}`}
-                        title={isTutorMode && !selectedPersona ? 'Önce bir persona seçmelisiniz' : ''}
-                    >
-                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                        </svg>
-                        <span className="text-xs font-medium">İletişim</span>
+                        <span className="text-[10px] font-bold uppercase tracking-tight">{isTutorMode ? 'Analiz' : 'Gelişim'}</span>
                     </button>
 
                     <button
                         onClick={() => setActiveTab('araclar')}
-                        className={`flex flex-col items-center gap-1 py-2 px-4 rounded-lg transition ${activeTab === 'araclar' ? `text-${themeColor}-600` : 'text-gray-600'
+                        className={`flex flex-col items-center gap-1 py-1.5 px-4 rounded-xl transition ${activeTab === 'araclar' ? `text-${themeColor}-600 bg-${themeColor}-50` : 'text-gray-400 hover:text-gray-600'
                             }`}
                     >
                         <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
                         </svg>
-                        <span className="text-xs font-medium">Araçlar</span>
+                        <span className="text-[10px] font-bold uppercase tracking-tight">{isTutorMode ? 'Yönetim' : 'Araçlar'}</span>
                     </button>
                 </div>
             </nav>
