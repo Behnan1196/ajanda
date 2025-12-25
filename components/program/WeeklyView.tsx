@@ -10,6 +10,9 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import {
     DndContext,
     closestCorners,
+    pointerWithin,
+    rectIntersection,
+    getFirstCollision,
     PointerSensor,
     TouchSensor,
     useSensor,
@@ -17,6 +20,7 @@ import {
     DragEndEvent,
     DragOverlay,
     useDroppable,
+    CollisionDetection,
 } from '@dnd-kit/core'
 import {
     SortableContext,
@@ -141,6 +145,25 @@ export default function WeeklyView({ userId, onDateSelect = () => { }, relations
             },
         })
     )
+
+    /**
+     * Custom collision detection strategy
+     * Prioritize pointerWithin for containers to prevent "long card" overlap issues
+     */
+    const customCollisionDetection: CollisionDetection = (args) => {
+        // 1. Find if we are directly over a container or item with pointer
+        const pointerCollisions = pointerWithin(args)
+
+        // 2. If we have pointer collisions, prioritize containers
+        if (pointerCollisions.length > 0) {
+            const containerCollision = pointerCollisions.find(c => weekTasks.has(c.id as string))
+            if (containerCollision) return [containerCollision]
+            return pointerCollisions
+        }
+
+        // 3. Fallback to closest corners for sorting within container or near-misses
+        return closestCorners(args)
+    }
 
     // Helper to get start of week (Monday)
     function getStartOfWeek(date: Date) {
@@ -479,7 +502,7 @@ export default function WeeklyView({ userId, onDateSelect = () => { }, relations
             {/* Week Grid */}
             <DndContext
                 sensors={sensors}
-                collisionDetection={closestCorners}
+                collisionDetection={customCollisionDetection}
                 onDragStart={handleDragStart}
                 onDragOver={handleDragOver}
                 onDragEnd={handleDragEnd}
@@ -611,7 +634,7 @@ function DroppableDay({ id, children, isToday }: { id: string, children: React.R
     return (
         <div
             ref={setNodeRef}
-            className={`group flex flex-col gap-2 min-h-[200px] rounded-xl p-2 border transition-colors ${isOver
+            className={`group flex flex-col gap-2 min-h-[450px] rounded-xl p-3 border transition-colors ${isOver
                 ? 'bg-indigo-100 border-indigo-400 ring-2 ring-indigo-200 shadow-inner'
                 : isToday
                     ? 'bg-indigo-50 border-indigo-200 shadow-sm'

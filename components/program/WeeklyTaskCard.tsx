@@ -57,7 +57,7 @@ export default function WeeklyTaskCard({
         <div
             ref={isOverlay ? undefined : setNodeRef}
             style={isOverlay ? undefined : style}
-            className={`relative bg-white rounded-lg p-3 shadow-sm border border-gray-200 hover:shadow-md transition group ${task.is_completed ? 'opacity-60' : ''} ${isOverlay ? 'shadow-xl ring-2 ring-indigo-400 rotate-2 cursor-grabbing' : ''
+            className={`relative bg-white rounded-lg p-3 shadow-sm border border-gray-200 hover:shadow-md transition group ${task.is_completed ? 'opacity-60' : ''} ${isOverlay ? 'shadow-xl ring-2 ring-indigo-400 rotate-2 cursor-grabbing pointer-events-none' : ''
                 }`}
         >
             {/* Drag Handle */}
