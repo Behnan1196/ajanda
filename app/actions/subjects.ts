@@ -231,3 +231,108 @@ export async function getTemplates() {
         preview: SPECIALTY_TEMPLATES[key].subjects.map(s => s.name).join(', ')
     }))
 }
+
+// ============================================
+// LIBRARY ITEMS & PROGRAM ASSIGNMENT
+// ============================================
+
+export async function getLibraryItems(subjectId: string) {
+    const supabase = await createClient()
+    const { data, error } = await supabase
+        .from('library_items')
+        .select(`
+            *,
+            task_types(name, icon, slug)
+        `)
+        .eq('subject_id', subjectId)
+        .order('day_offset', { ascending: true })
+
+    if (error) {
+        console.error('Error fetching library items:', error)
+        return []
+    }
+    return data
+}
+
+export async function saveLibraryItems(items: any[]) {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { success: false, error: 'Unauthorized' }
+
+    const payload = items.map(item => ({
+        ...item,
+        created_by: user.id
+    }))
+
+    const { error } = await supabase
+        .from('library_items')
+        .upsert(payload)
+
+    if (error) return { success: false, error: error.message }
+    return { success: true }
+}
+
+export async function deleteLibraryItem(id: string) {
+    const supabase = await createClient()
+    const { error } = await supabase
+        .from('library_items')
+        .delete()
+        .eq('id', id)
+
+    if (error) return { success: false, error: error.message }
+    return { success: true }
+}
+
+/**
+ * Assigns a full program (subject) to a student starting from a specific date.
+ * Maps library items to tasks with calculated due dates.
+ */
+export async function assignProgramToStudent(studentId: string, subjectId: string, startDate: string) {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { success: false, error: 'Unauthorized' }
+
+    // 1. Get all library items for this subject
+    const { data: libraryItems, error: libError } = await supabase
+        .from('library_items')
+        .select('*')
+        .eq('subject_id', subjectId)
+        .eq('is_active', true)
+
+    if (libError) return { success: false, error: libError.message }
+    if (!libraryItems || libraryItems.length === 0) {
+        return { success: false, error: 'Bu programda henüz görev tanımlanmamış.' }
+    }
+
+    // 2. Prepare tasks conversion
+    const start = new Date(startDate)
+
+    const tasksToInsert = libraryItems.map(item => {
+        const dueDate = new Date(start)
+        dueDate.setDate(dueDate.getDate() + (item.day_offset || 0))
+
+        return {
+            user_id: studentId,
+            task_type_id: item.task_type_id,
+            subject_id: item.subject_id,
+            topic_id: item.topic_id,
+            title: item.title,
+            description: item.description,
+            metadata: item.metadata,
+            due_date: dueDate.toISOString().split('T')[0],
+            created_by: user.id,
+            assigned_by: user.id,
+            is_completed: false,
+            sort_order: 0
+        }
+    })
+
+    // 3. Batch insert tasks
+    const { error: insertError } = await supabase
+        .from('tasks')
+        .insert(tasksToInsert)
+
+    if (insertError) return { success: false, error: insertError.message }
+
+    return { success: true, count: tasksToInsert.length }
+}
