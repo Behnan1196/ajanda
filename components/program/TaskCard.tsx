@@ -79,15 +79,8 @@ export default function TaskCard({
     return (
         <div className={`bg-white rounded-xl p-4 shadow-sm border border-gray-200 transition ${is_completed ? 'opacity-60' : ''}`}>
             <div className="flex items-start gap-3">
-                {/* Left Side: Menu + Icon Handle */}
-                <div className="flex items-center gap-1 mt-0.5 shrink-0">
-                    <TaskMenu
-                        taskId={task.id}
-                        isCompleted={is_completed}
-                        onEdit={onEdit}
-                        onDelete={onDelete}
-                        onUncomplete={onUncomplete}
-                    />
+                {/* Left Side: Icon Handle */}
+                <div className="flex items-center mt-0.5 shrink-0">
                     <div
                         {...dragAttributes}
                         {...dragListeners}
@@ -167,7 +160,14 @@ export default function TaskCard({
                     )}
                 </div>
 
-                <div className="flex items-center shrink-0">
+                <div className="flex flex-col items-center gap-2 shrink-0">
+                    <TaskMenu
+                        taskId={task.id}
+                        isCompleted={is_completed}
+                        onEdit={onEdit}
+                        onDelete={onDelete}
+                        onUncomplete={onUncomplete}
+                    />
                     <button
                         onClick={is_completed ? onUncomplete : onComplete}
                         className={`w-6 h-6 rounded-full border flex items-center justify-center transition-colors ${is_completed

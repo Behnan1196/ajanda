@@ -24,8 +24,8 @@ import ProjectListView from './program/ProjectListView'
 import ProjectDetailsView from './program/ProjectDetailsView'
 import { Project } from '@/app/actions/projects'
 
-type TabType = 'program' | 'gelisim' | 'iletisim' | 'araclar'
-type ProgramTabType = 'bugun' | 'haftalik' | 'aylik' | 'aliskanliklar'
+type TabType = 'students' | 'program' | 'gelisim' | 'iletisim' | 'araclar'
+type ProgramTabType = 'bugun' | 'haftalik' | 'aylik' | 'aliskanliklar' | 'takvim'
 
 interface DashboardTabsProps {
     user: User
@@ -35,8 +35,8 @@ interface DashboardTabsProps {
 }
 
 export default function DashboardTabs({ user, isTutorMode = false, initialPersonaId, initialTab }: DashboardTabsProps) {
-    const [activeTab, setActiveTab] = useState<TabType>(initialTab || 'program')
-    const [activeProgramTab, setActiveProgramTab] = useState<ProgramTabType>('bugun')
+    const [activeTab, setActiveTab] = useState<TabType>(initialTab || (isTutorMode ? 'students' : 'program'))
+    const [activeProgramTab, setActiveProgramTab] = useState<ProgramTabType>(isTutorMode ? 'haftalik' : 'bugun')
     const [selectedDate, setSelectedDate] = useState<Date | null>(null)
     const [isDropdownOpen, setIsDropdownOpen] = useState(false)
     const dropdownRef = useRef<HTMLDivElement>(null)
@@ -200,93 +200,107 @@ export default function DashboardTabs({ user, isTutorMode = false, initialPerson
 
             {/* Content Area */}
             <div className="flex-1 overflow-auto pb-20">
+                {activeTab === 'students' && isTutorMode && (
+                    <div className="p-4 space-y-4">
+                        <header className="mb-6">
+                            <h2 className="text-xl font-bold text-gray-900">Öğrencilerim</h2>
+                            <p className="text-xs text-gray-500 font-medium">Planlama yapmak için bir öğrenci seçin.</p>
+                        </header>
+                        <div className="grid grid-cols-1 gap-4">
+                            {loadingPersonas ? (
+                                <div className="text-center py-12 text-gray-500">Öğrenci listesi yükleniyor...</div>
+                            ) : personas.length === 0 ? (
+                                <div className="text-center py-12 text-gray-500 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+                                    <span className="text-4xl block mb-2">👶</span>
+                                    Henüz atanmış bir öğrenciniz yok.
+                                </div>
+                            ) : (
+                                personas.map((persona, index) => (
+                                    <button
+                                        key={`${persona.id}-${index}`}
+                                        onClick={() => {
+                                            setSelectedPersona(persona)
+                                            setActiveTab('program')
+                                        }}
+                                        className="flex items-center gap-4 p-4 bg-white border border-gray-200 rounded-2xl hover:border-purple-300 hover:shadow-xl transition-all text-left group"
+                                    >
+                                        <div className="h-12 w-12 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center text-xl font-bold shadow-sm">
+                                            {persona.name.charAt(0).toUpperCase()}
+                                        </div>
+                                        <div className="flex-1">
+                                            <h3 className="font-bold text-gray-900 group-hover:text-purple-600 transition">
+                                                {persona.name}
+                                            </h3>
+                                            <div className="flex items-center gap-2 mt-0.5">
+                                                <span className="text-[10px] bg-purple-50 text-purple-600 px-2 py-0.5 rounded-full font-bold uppercase tracking-tight">
+                                                    {persona.role}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div className="text-purple-600 opacity-0 group-hover:opacity-100 transition translate-x-1 group-hover:translate-x-0 mr-2">
+                                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 5l7 7-7 7" />
+                                            </svg>
+                                        </div>
+                                    </button>
+                                ))
+                            )}
+                        </div>
+                    </div>
+                )}
+
                 {activeTab === 'program' && (
                     <div>
                         {/* Program Sub-tabs (Sticky) */}
                         <div className="sticky top-0 bg-gray-50/80 backdrop-blur-md z-20 flex gap-1 p-4 pb-0 overflow-x-auto border-b border-gray-100">
+                            {!isTutorMode && (
+                                <button
+                                    onClick={() => setActiveProgramTab('bugun')}
+                                    className={`py-2 px-3 rounded-t-lg text-sm font-bold transition whitespace-nowrap ${activeProgramTab === 'bugun'
+                                        ? `bg-white text-indigo-600 shadow-sm`
+                                        : 'text-gray-500 hover:bg-gray-50'
+                                        }`}
+                                >
+                                    Bugün
+                                </button>
+                            )}
                             <button
-                                onClick={() => {
-                                    if (isTutorMode && !selectedPersona) return
-                                    setActiveProgramTab('bugun')
-                                }}
-                                className={`py-2 px-3 rounded-t-lg text-sm font-medium transition whitespace-nowrap ${activeProgramTab === 'bugun'
+                                onClick={() => setActiveProgramTab('haftalik')}
+                                className={`py-2 px-3 rounded-t-lg text-sm font-bold transition whitespace-nowrap ${activeProgramTab === 'haftalik'
                                     ? `bg-white text-${themeColor}-600 shadow-sm`
-                                    : 'text-gray-600 hover:bg-gray-50'
-                                    } ${isTutorMode && !selectedPersona ? 'opacity-40 cursor-not-allowed' : ''}`}
-                            >
-                                Günlük
-                            </button>
-                            <button
-                                onClick={() => {
-                                    if (isTutorMode && !selectedPersona) return
-                                    setActiveProgramTab('haftalik')
-                                }}
-                                className={`py-2 px-3 rounded-t-lg text-sm font-medium transition whitespace-nowrap ${activeProgramTab === 'haftalik'
-                                    ? `bg-white text-${themeColor}-600 shadow-sm`
-                                    : 'text-gray-600 hover:bg-gray-50'
-                                    } ${isTutorMode && !selectedPersona ? 'opacity-40 cursor-not-allowed' : ''}`}
+                                    : 'text-gray-500 hover:bg-gray-50'
+                                    }`}
                             >
                                 Haftalık
                             </button>
                             <button
-                                onClick={() => {
-                                    if (isTutorMode && !selectedPersona) return
-                                    setActiveProgramTab('aylik')
-                                }}
-                                className={`py-2 px-3 rounded-t-lg text-sm font-medium transition whitespace-nowrap ${activeProgramTab === 'aylik'
+                                onClick={() => setActiveProgramTab('aylik')}
+                                className={`py-2 px-3 rounded-t-lg text-sm font-bold transition whitespace-nowrap ${activeProgramTab === 'aylik'
                                     ? `bg-white text-${themeColor}-600 shadow-sm`
-                                    : 'text-gray-600 hover:bg-gray-50'
-                                    } ${isTutorMode && !selectedPersona ? 'opacity-40 cursor-not-allowed' : ''}`}
+                                    : 'text-gray-500 hover:bg-gray-50'
+                                    }`}
                             >
-                                Aylık
+                                {isTutorMode ? 'Takvim' : 'Aylık'}
                             </button>
-                            <button
-                                onClick={() => {
-                                    if (isTutorMode && !selectedPersona) return
-                                    setActiveProgramTab('aliskanliklar')
-                                }}
-                                className={`py-2 px-3 rounded-t-lg text-sm font-medium transition whitespace-nowrap ${activeProgramTab === 'aliskanliklar'
-                                    ? `bg-white text-${themeColor}-600 shadow-sm`
-                                    : 'text-gray-600 hover:bg-gray-50'
-                                    } ${isTutorMode && !selectedPersona ? 'opacity-40 cursor-not-allowed' : ''}`}
-                            >
-                                Alışkanlıklar
-                            </button>
+                            {!isTutorMode && (
+                                <button
+                                    onClick={() => setActiveProgramTab('aliskanliklar')}
+                                    className={`py-2 px-3 rounded-t-lg text-sm font-bold transition whitespace-nowrap ${activeProgramTab === 'aliskanliklar'
+                                        ? `bg-white text-indigo-600 shadow-sm`
+                                        : 'text-gray-500 hover:bg-gray-50'
+                                        }`}
+                                >
+                                    Alışkanlıklar
+                                </button>
+                            )}
                         </div>
 
                         {/* Program Content */}
                         <div className="bg-white">
                             {isTutorMode && !selectedPersona ? (
-                                <div className="p-4 grid grid-cols-1 gap-4">
-                                    {loadingPersonas ? (
-                                        <div className="text-center py-12 text-gray-500">Personalar yükleniyor...</div>
-                                    ) : personas.length === 0 ? (
-                                        <div className="text-center py-12 text-gray-500 bg-gray-50 rounded-lg">
-                                            <span className="text-4xl block mb-2">👶</span>
-                                            Henüz personanız yok
-                                        </div>
-                                    ) : (
-                                        personas.map((persona, index) => (
-                                            <button
-                                                key={`${persona.id}-${index}`}
-                                                onClick={() => setSelectedPersona(persona)}
-                                                className="flex items-center gap-4 p-4 bg-white border border-gray-200 rounded-xl hover:border-purple-300 hover:shadow-md transition text-left group"
-                                            >
-                                                <div className="h-12 w-12 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center text-xl font-bold">
-                                                    {persona.name.charAt(0).toUpperCase()}
-                                                </div>
-                                                <div className="flex-1">
-                                                    <h3 className="font-semibold text-gray-900 group-hover:text-purple-600 transition">
-                                                        {persona.name}
-                                                    </h3>
-                                                    <p className="text-xs text-gray-500">{persona.role}</p>
-                                                </div>
-                                                <div className="text-purple-600 opacity-0 group-hover:opacity-100 transition mr-2">
-                                                    →
-                                                </div>
-                                            </button>
-                                        ))
-                                    )}
+                                <div className="p-12 text-center text-gray-500 font-medium">
+                                    <span className="text-4xl block mb-4 opacity-20">📅</span>
+                                    Planlamayı görmek için lütfen önce bir öğrenci seçin.
                                 </div>
                             ) : (
                                 <>
@@ -414,41 +428,63 @@ export default function DashboardTabs({ user, isTutorMode = false, initialPerson
 
             {/* Bottom Tab Bar */}
             <nav className={`fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 py-2 safe-area-bottom z-30`}>
-                <div className="flex items-center justify-around max-w-2xl mx-auto">
+                <div className={`flex items-center justify-around ${isTutorMode ? 'max-w-4xl' : 'max-w-2xl'} mx-auto`}>
+                    {isTutorMode && (
+                        <button
+                            onClick={() => setActiveTab('students')}
+                            className={`flex flex-col items-center gap-1 py-1.5 px-3 rounded-xl transition ${activeTab === 'students' ? 'text-purple-600 bg-purple-50' : 'text-gray-400 hover:text-gray-600'}`}
+                        >
+                            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                            </svg>
+                            <span className="text-[10px] font-black uppercase tracking-tight">Öğrencilerim</span>
+                        </button>
+                    )}
+
                     <button
-                        onClick={() => setActiveTab('program')}
-                        className={`flex flex-col items-center gap-1 py-1.5 px-4 rounded-xl transition ${activeTab === 'program' ? `text-${themeColor}-600 bg-${themeColor}-50` : 'text-gray-400 hover:text-gray-600'
-                            }`}
+                        onClick={() => {
+                            if (isTutorMode && !selectedPersona) {
+                                setActiveTab('students')
+                                return
+                            }
+                            setActiveTab('program')
+                        }}
+                        className={`flex flex-col items-center gap-1 py-1.5 px-3 rounded-xl transition ${activeTab === 'program' ? `text-${themeColor}-600 bg-${themeColor}-50` : 'text-gray-400 hover:text-gray-600'
+                            } ${isTutorMode && !selectedPersona ? 'opacity-30' : ''}`}
                     >
                         <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
-                        <span className="text-[10px] font-bold uppercase tracking-tight">{isTutorMode ? 'Planlayıcı' : 'Program'}</span>
+                        <span className="text-[10px] font-black uppercase tracking-tight">{isTutorMode ? 'Planlama' : 'Program'}</span>
                     </button>
 
                     <button
                         onClick={() => {
-                            if (isTutorMode && !selectedPersona) return
+                            if (isTutorMode && !selectedPersona) {
+                                setActiveTab('students')
+                                return
+                            }
                             setActiveTab('gelisim')
                         }}
-                        className={`flex flex-col items-center gap-1 py-1.5 px-4 rounded-xl transition ${activeTab === 'gelisim' ? `text-${themeColor}-600 bg-${themeColor}-50` : 'text-gray-400 hover:text-gray-600'
-                            } ${isTutorMode && !selectedPersona ? 'opacity-20 cursor-not-allowed' : ''}`}
+                        className={`flex flex-col items-center gap-1 py-1.5 px-3 rounded-xl transition ${activeTab === 'gelisim' ? `text-${themeColor}-600 bg-${themeColor}-50` : 'text-gray-400 hover:text-gray-600'
+                            } ${isTutorMode && !selectedPersona ? 'opacity-30' : ''}`}
                     >
                         <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                         </svg>
-                        <span className="text-[10px] font-bold uppercase tracking-tight">{isTutorMode ? 'Analiz' : 'Gelişim'}</span>
+                        <span className="text-[10px] font-black uppercase tracking-tight">{isTutorMode ? 'Analiz' : 'Gelişim'}</span>
                     </button>
 
                     <button
                         onClick={() => setActiveTab('araclar')}
-                        className={`flex flex-col items-center gap-1 py-1.5 px-4 rounded-xl transition ${activeTab === 'araclar' ? `text-${themeColor}-600 bg-${themeColor}-50` : 'text-gray-400 hover:text-gray-600'
+                        className={`flex flex-col items-center gap-1 py-1.5 px-3 rounded-xl transition ${activeTab === 'araclar' ? `text-${themeColor}-600 bg-${themeColor}-50` : 'text-gray-400 hover:text-gray-600'
                             }`}
                     >
                         <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                         </svg>
-                        <span className="text-[10px] font-bold uppercase tracking-tight">{isTutorMode ? 'Yönetim' : 'Araçlar'}</span>
+                        <span className="text-[10px] font-black uppercase tracking-tight">{isTutorMode ? 'Yönetim' : 'Araçlar'}</span>
                     </button>
                 </div>
             </nav>
