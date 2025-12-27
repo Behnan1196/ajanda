@@ -80,7 +80,7 @@ export default function TodayView({ userId, initialDate, isTutorMode = false }: 
         const enrichTasks = async () => {
             if (localTasks) {
                 const enriched = await Promise.all(localTasks.map(async (t) => {
-                    const type = await db.task_types.get(t.task_type_id)
+                    const type = t.task_type_id ? await db.task_types.get(t.task_type_id) : null
                     const subject = t.subject_id ? await db.subjects.get(t.subject_id) : null
                     return {
                         ...t,

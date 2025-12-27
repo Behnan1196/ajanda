@@ -17,7 +17,9 @@ interface WeeklyTaskCardProps {
     onDelete: () => void
     onComplete: () => void
     onUncomplete: () => void
+    onStyle?: () => void
     isOverlay?: boolean
+    userId?: string
 }
 
 export default function WeeklyTaskCard({
@@ -26,8 +28,27 @@ export default function WeeklyTaskCard({
     onDelete,
     onComplete,
     onUncomplete,
-    isOverlay = false
+    onStyle,
+    isOverlay = false,
+    userId
 }: WeeklyTaskCardProps) {
+
+    // Permission Logic:
+    // If we are in student mode (implied by context if we are checking permissions like this):
+    // - User can edit if they created it (created_by === userId)
+    // - User can edit if there is no restriction logic applied (default)
+    // - BUT here we strictly want: if created_by != userId (assigned by coach), NO EDIT.
+    // However, we need to be careful about 'userId' prop.
+    // In WeeklyView, 'userId' is the id of the user whose board we are viewing.
+    // If I am the student viewing my board, userId is ME.
+    // If task.created_by is ME, I made it.
+    // If task.created_by is COACH, I didn't make it.
+
+    // If userId is NOT provided (older usage?), default to allow? Or maybe we should allow all for now if unsure.
+    // But the request is specific.
+    // Let's assume userId is passed.
+
+    const canModify = !userId || task.created_by === userId
 
     const {
         attributes,
@@ -67,11 +88,35 @@ export default function WeeklyTaskCard({
         }
     }
 
+    const getStyleClasses = () => {
+        const s = task.metadata?.style
+        const color = s?.color || 'white'
+        const border = s?.border || 'solid'
+
+        let classes = ''
+
+        // Colors
+        switch (color) {
+            case 'red': classes = 'bg-red-50 border-red-200'; break;
+            case 'green': classes = 'bg-emerald-50 border-emerald-200'; break;
+            case 'blue': classes = 'bg-blue-50 border-blue-200'; break;
+            case 'yellow': classes = 'bg-amber-50 border-amber-200'; break;
+            case 'purple': classes = 'bg-purple-50 border-purple-200'; break;
+            default: classes = 'bg-white border-gray-200';
+        }
+
+        // Border Style
+        if (border === 'dashed') classes += ' border-dashed'
+        if (border === 'thick') classes += ' border-l-4'
+
+        return classes
+    }
+
     return (
         <div
             ref={isOverlay ? undefined : setNodeRef}
             style={isOverlay ? undefined : style}
-            className={`bg-white rounded-xl p-3 shadow-sm border border-gray-200 hover:shadow-md transition group ${task.is_completed ? 'opacity-60' : ''} ${isOverlay ? 'shadow-xl ring-2 ring-indigo-400 rotate-2 cursor-grabbing pointer-events-none' : ''
+            className={`${getStyleClasses()} rounded-xl p-3 shadow-sm border hover:shadow-md transition group ${task.is_completed ? 'opacity-60' : ''} ${isOverlay ? 'shadow-xl ring-2 ring-indigo-400 rotate-2 cursor-grabbing pointer-events-none' : ''
                 }`}
         >
             <div className="flex items-start gap-3">
@@ -168,9 +213,10 @@ export default function WeeklyTaskCard({
                     <TaskMenu
                         taskId={task.id}
                         isCompleted={task.is_completed}
-                        onEdit={onEdit}
-                        onDelete={onDelete}
+                        onEdit={canModify ? onEdit : undefined}
+                        onDelete={canModify ? onDelete : undefined}
                         onUncomplete={onUncomplete}
+                        onStyle={onStyle}
                     />
                     <button
                         onClick={(e) => {

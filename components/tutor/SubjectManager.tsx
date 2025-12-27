@@ -228,9 +228,12 @@ export default function SubjectManager({ editingSubject, onClose, onSuccess }: S
                                             <button
                                                 type="button"
                                                 onClick={() => handleRemoveTopic(idx)}
-                                                className="text-gray-400 hover:text-red-500"
+                                                className="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition"
+                                                title="Bu alt başlığı sil"
                                             >
-                                                ✕
+                                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                </svg>
                                             </button>
                                         </div>
                                     ))}
@@ -241,13 +244,32 @@ export default function SubjectManager({ editingSubject, onClose, onSuccess }: S
                             )}
                         </div>
 
-                        <button
-                            type="submit"
-                            disabled={loading}
-                            className="w-full py-2.5 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition disabled:opacity-50"
-                        >
-                            {loading ? (isEditMode ? 'Güncelleniyor...' : 'Oluşturuluyor...') : (isEditMode ? 'Güncelle' : 'Oluştur')}
-                        </button>
+                        <div className="flex items-center gap-3 pt-2">
+                            {isEditMode && (
+                                <button
+                                    type="button"
+                                    onClick={async () => {
+                                        if (confirm('Bu projeyi ve tüm içeriğini silmek istediğinize emin misiniz?')) {
+                                            const { deleteSubject } = await import('@/app/actions/subjects')
+                                            setLoading(true)
+                                            const res = await deleteSubject(editingSubject.id)
+                                            if (res.success) onSuccess()
+                                            setLoading(false)
+                                        }
+                                    }}
+                                    className="px-4 py-2.5 bg-red-50 text-red-600 rounded-lg font-bold text-sm hover:bg-red-100 transition"
+                                >
+                                    Sil
+                                </button>
+                            )}
+                            <button
+                                type="submit"
+                                disabled={loading}
+                                className="flex-1 py-2.5 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition disabled:opacity-50"
+                            >
+                                {loading ? (isEditMode ? 'Güncelleniyor...' : 'Oluşturuluyor...') : (isEditMode ? 'Kaydet' : 'Oluştur')}
+                            </button>
+                        </div>
                     </form>
                 ) : (
                     <div className="space-y-3">
@@ -268,8 +290,9 @@ export default function SubjectManager({ editingSubject, onClose, onSuccess }: S
                             </div>
                         ))}
                     </div>
-                )}
-            </div>
-        </div>
+                )
+                }
+            </div >
+        </div >
     )
 }

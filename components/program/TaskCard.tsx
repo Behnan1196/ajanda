@@ -10,6 +10,10 @@ interface TaskCardProps {
             video_url?: string
             duration?: number
             notes?: string
+            style?: {
+                color?: string
+                border?: string
+            }
         }
         due_time: string | null
         is_completed: boolean
@@ -31,6 +35,7 @@ interface TaskCardProps {
     onUncomplete: () => void
     onEdit: () => void
     onDelete: () => void
+    onStyle?: () => void
     dragAttributes?: any
     dragListeners?: any
 }
@@ -49,6 +54,7 @@ export default function TaskCard({
     onUncomplete,
     onEdit,
     onDelete,
+    onStyle,
     dragAttributes,
     dragListeners
 }: TaskCardProps) {
@@ -76,8 +82,32 @@ export default function TaskCard({
         }
     }
 
+    const getStyleClasses = () => {
+        const s = task.metadata?.style
+        const color = s?.color || 'white'
+        const border = s?.border || 'solid'
+
+        let classes = ''
+
+        // Colors
+        switch (color) {
+            case 'red': classes = 'bg-red-50 border-red-200'; break;
+            case 'green': classes = 'bg-emerald-50 border-emerald-200'; break;
+            case 'blue': classes = 'bg-blue-50 border-blue-200'; break;
+            case 'yellow': classes = 'bg-amber-50 border-amber-200'; break;
+            case 'purple': classes = 'bg-purple-50 border-purple-200'; break;
+            default: classes = 'bg-white border-gray-200';
+        }
+
+        // Border Style
+        if (border === 'dashed') classes += ' border-dashed'
+        if (border === 'thick') classes += ' border-l-4'
+
+        return classes
+    }
+
     return (
-        <div className={`bg-white rounded-xl p-4 shadow-sm border border-gray-200 transition ${is_completed ? 'opacity-60' : ''}`}>
+        <div className={`${getStyleClasses()} rounded-xl p-4 shadow-sm border transition ${is_completed ? 'opacity-60' : ''}`}>
             <div className="flex items-start gap-3">
                 {/* Left Side: Icon Handle */}
                 <div className="flex items-center mt-0.5 shrink-0">
@@ -130,7 +160,7 @@ export default function TaskCard({
 
                     <div className="flex items-center gap-3 text-sm text-gray-500">
                         {!videoUrl && metadata.video_url && (
-                            /* Fallback link if preview logic somehow fails but url exists (unlikely given logic above) */
+                            /* Fallback link if preview logic somehow fails but url exists */
                             <a
                                 href={metadata.video_url}
                                 target="_blank"
@@ -167,6 +197,7 @@ export default function TaskCard({
                         onEdit={onEdit}
                         onDelete={onDelete}
                         onUncomplete={onUncomplete}
+                        onStyle={onStyle}
                     />
                     <button
                         onClick={is_completed ? onUncomplete : onComplete}

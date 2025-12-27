@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import WeeklyTaskCard from './WeeklyTaskCard'
 import TaskFormModal from './TaskFormModal'
 import QuickTodoModal from './QuickTodoModal'
+import TaskStyleModal from './TaskStyleModal'
 import { db } from '@/lib/db'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
@@ -98,7 +99,7 @@ export default function WeeklyView({ userId, onDateSelect = () => { }, relations
                 days.forEach(d => tasksMap.set(toLocalISOString(d), []))
 
                 const enriched = await Promise.all(localTasks.map(async (t) => {
-                    const type = await db.task_types.get(t.task_type_id)
+                    const type = t.task_type_id ? await db.task_types.get(t.task_type_id) : null
                     const subject = t.subject_id ? await db.subjects.get(t.subject_id) : null
                     return {
                         ...t,
@@ -128,6 +129,7 @@ export default function WeeklyView({ userId, onDateSelect = () => { }, relations
     const [showQuickTodoModal, setShowQuickTodoModal] = useState(false)
     const [selectedDate, setSelectedDate] = useState<Date>(new Date())
     const [editingTask, setEditingTask] = useState<Task | null>(null)
+    const [styleModalConfig, setStyleModalConfig] = useState<{ task: Task | null; isOpen: boolean }>({ task: null, isOpen: false })
     const [activeId, setActiveId] = useState<string | null>(null)
     const supabase = createClient()
 
@@ -324,6 +326,35 @@ export default function WeeklyView({ userId, onDateSelect = () => { }, relations
         if (!error) await db.tasks.update(taskId, { is_dirty: 0 })
     }
 
+    const handleTaskStyleSave = async (style: { color: string; border: string }) => {
+        const task = styleModalConfig.task
+        if (!task) return
+
+        const updatedMetadata = {
+            ...task.metadata,
+            style: style
+        }
+
+        const updateData = {
+            metadata: updatedMetadata,
+            is_dirty: 1
+        }
+
+        // 1. Update LOCAL
+        await db.tasks.update(task.id, updateData)
+
+        // 2. Update REMOTE
+        const { error } = await supabase
+            .from('tasks')
+            .update({ metadata: updatedMetadata })
+            .eq('id', task.id)
+
+        if (!error) await db.tasks.update(task.id, { is_dirty: 0 })
+
+        // Refresh UI
+        loadWeekTasks(true)
+    }
+
     // Flatten all tasks for finding active task during drag
     const dataFlatten: Task[] = []
     weekTasks.forEach(tasks => dataFlatten.push(...tasks))
@@ -518,18 +549,29 @@ export default function WeeklyView({ userId, onDateSelect = () => { }, relations
                         return (
                             <DroppableDay key={dateStr} id={dateStr} isToday={isDayToday}>
                                 <div className="flex flex-col h-full">
-                                    {/* Day Header */}
-                                    <button
-                                        onClick={() => onDateSelect(date)}
-                                        className="text-left mb-2 transition hover:opacity-75"
-                                    >
-                                        <div className={`text-xs font-bold uppercase tracking-wider ${isDayToday ? 'text-indigo-600' : 'text-gray-500'}`}>
-                                            {dayName}
+                                    {/* Day Header - Compact & Non-interactive */}
+                                    <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-100">
+                                        <div className={`text-sm font-bold truncate ${isDayToday ? 'text-indigo-600' : 'text-gray-700'}`}>
+                                            {dayName} <span className={`ml-1 font-normal ${isDayToday ? 'text-indigo-800' : 'text-gray-400'}`}>{date.toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' })}</span>
                                         </div>
-                                        <div className={`text-base font-extrabold ${isDayToday ? 'text-indigo-700' : 'text-gray-900'}`}>
-                                            {dayShort}
-                                        </div>
-                                    </button>
+                                        <button
+                                            onClick={() => {
+                                                setSelectedDate(date)
+                                                setEditingTask(null)
+                                                if (isTutorMode) {
+                                                    setShowTaskModal(true)
+                                                } else {
+                                                    setShowQuickTodoModal(true)
+                                                }
+                                            }}
+                                            className="w-6 h-6 flex items-center justify-center rounded-full bg-gray-50 text-gray-400 hover:bg-indigo-50 hover:text-indigo-600 transition"
+                                            title="Görev Ekle"
+                                        >
+                                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                            </svg>
+                                        </button>
+                                    </div>
 
                                     {/* Tasks List */}
                                     <div className="flex-1">
@@ -547,6 +589,8 @@ export default function WeeklyView({ userId, onDateSelect = () => { }, relations
                                                         onDelete={() => handleTaskDelete(task.id)}
                                                         onComplete={() => handleTaskComplete(task.id)}
                                                         onUncomplete={() => handleTaskUncomplete(task.id)}
+                                                        onStyle={() => setStyleModalConfig({ task: task, isOpen: true })}
+                                                        userId={userId}
                                                     />
                                                 ))}
                                                 {tasksForDay.length === 0 && (
@@ -558,23 +602,8 @@ export default function WeeklyView({ userId, onDateSelect = () => { }, relations
                                         </SortableContext>
                                     </div>
 
-                                    {/* Add Buttons */}
-                                    <div className="mt-3 flex flex-col gap-1.5 transition-opacity">
-                                        <button
-                                            onClick={() => {
-                                                setSelectedDate(date)
-                                                setEditingTask(null)
-                                                if (isTutorMode) {
-                                                    setShowTaskModal(true)
-                                                } else {
-                                                    setShowQuickTodoModal(true)
-                                                }
-                                            }}
-                                            className="w-full py-1.5 border border-dashed border-gray-200 rounded-lg text-[10px] font-bold text-gray-400 hover:border-indigo-300 hover:text-indigo-600 hover:bg-white transition shadow-sm"
-                                        >
-                                            + GÖREV EKLE
-                                        </button>
-                                    </div>
+                                    {/* Add Buttons removed/moved to header */}
+
                                 </div>
                             </DroppableDay>
                         )
@@ -620,6 +649,14 @@ export default function WeeklyView({ userId, onDateSelect = () => { }, relations
                     onTaskAdded={handleTaskSaved}
                     editingTask={editingTask}
                     initialDate={selectedDate}
+                />
+            )}
+
+            {styleModalConfig.isOpen && styleModalConfig.task && (
+                <TaskStyleModal
+                    currentStyle={styleModalConfig.task.metadata?.style}
+                    onSave={handleTaskStyleSave}
+                    onClose={() => setStyleModalConfig({ task: null, isOpen: false })}
                 />
             )}
         </div>
