@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import TemplateSelector from '@/components/tutor/TemplateSelector'
 
 interface NutritionIntakeData {
@@ -28,6 +28,9 @@ interface Analysis {
 
 export default function NutritionCoachingPage() {
     const router = useRouter()
+    const searchParams = useSearchParams()
+    const studentIdParam = searchParams?.get('studentId')
+
     const [step, setStep] = useState<'intake' | 'analysis' | 'template'>('intake')
     const [formData, setFormData] = useState<NutritionIntakeData>({
         weight: '',
@@ -299,6 +302,7 @@ export default function NutritionCoachingPage() {
                                 alert('✅ Beslenme programı başarıyla oluşturuldu!')
                                 router.push('/tutor')
                             }}
+                            defaultStudentId={studentIdParam || undefined}
                         />
 
                         <button

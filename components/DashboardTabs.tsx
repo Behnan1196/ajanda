@@ -25,7 +25,7 @@ import ProjectDetailsView from './program/ProjectDetailsView'
 import { Project } from '@/app/actions/projects'
 
 type TabType = 'students' | 'program' | 'gelisim' | 'iletisim' | 'araclar'
-type ProgramTabType = 'bugun' | 'haftalik' | 'aylik' | 'aliskanliklar' | 'takvim'
+type ProgramTabType = 'bugun' | 'haftalik' | 'aylik' | 'aliskanliklar' | 'takvim' | 'projeler'
 
 interface DashboardTabsProps {
     user: User
@@ -282,6 +282,17 @@ export default function DashboardTabs({ user, isTutorMode = false, initialPerson
                             >
                                 {isTutorMode ? 'Takvim' : 'Aylık'}
                             </button>
+                            {isTutorMode && (
+                                <button
+                                    onClick={() => setActiveProgramTab('projeler')}
+                                    className={`py-2 px-3 rounded-t-lg text-sm font-bold transition whitespace-nowrap ${activeProgramTab === 'projeler'
+                                        ? `bg-white text-${themeColor}-600 shadow-sm`
+                                        : 'text-gray-500 hover:bg-gray-50'
+                                        }`}
+                                >
+                                    Projeler
+                                </button>
+                            )}
                             {!isTutorMode && (
                                 <button
                                     onClick={() => setActiveProgramTab('aliskanliklar')}
@@ -321,6 +332,19 @@ export default function DashboardTabs({ user, isTutorMode = false, initialPerson
                                     {activeProgramTab === 'aliskanliklar' && (
                                         <div className="p-4 pt-0">
                                             <HabitsView userId={targetUserId} />
+                                        </div>
+                                    )}
+                                    {activeProgramTab === 'projeler' && (
+                                        <div className="p-4 pt-0">
+                                            {selectedProject ? (
+                                                <ProjectDetailsView project={selectedProject} onBack={() => setSelectedProject(null)} />
+                                            ) : (
+                                                <ProjectListView
+                                                    onProjectSelect={setSelectedProject}
+                                                    userId={selectedPersona?.id}
+                                                    filter="coach"
+                                                />
+                                            )}
                                         </div>
                                     )}
                                 </>
@@ -387,12 +411,19 @@ export default function DashboardTabs({ user, isTutorMode = false, initialPerson
                                 {selectedProject ? (
                                     <ProjectDetailsView project={selectedProject} onBack={() => setSelectedProject(null)} />
                                 ) : (
-                                    <ProjectListView onProjectSelect={setSelectedProject} />
+                                    <ProjectListView
+                                        onProjectSelect={setSelectedProject}
+                                        userId={selectedPersona?.id}
+                                        filter={isTutorMode ? 'all' : 'personal'}
+                                    />
                                 )}
                             </div>
                         )}
                         {!activeTool && (
-                            isTutorMode ? <TutorToolsView onSelectTool={(tool) => setActiveTool(tool)} /> : <div className="space-y-4">
+                            isTutorMode ? <TutorToolsView
+                                onSelectTool={(tool) => setActiveTool(tool)}
+                                selectedStudentId={selectedPersona?.id}
+                            /> : <div className="space-y-4">
                                 <h2 className="text-xl font-bold text-gray-900">Araçlarım</h2>
                                 <div className="grid grid-cols-2 gap-4">
                                     <button

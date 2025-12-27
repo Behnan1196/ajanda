@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import TemplateSelector from '@/components/tutor/TemplateSelector'
 
 interface CodingFormData {
@@ -29,6 +29,9 @@ const TOPICS = ['JavaScript', 'TypeScript', 'Python', 'React', 'SQL', 'Docker', 
 
 export default function CodingCoachingPage() {
     const router = useRouter()
+    const searchParams = useSearchParams()
+    const studentIdParam = searchParams?.get('studentId')
+
     const [step, setStep] = useState<'intake' | 'analysis' | 'template'>('intake')
     const [formData, setFormData] = useState<CodingFormData>({
         targetStack: 'frontend',
@@ -96,7 +99,7 @@ export default function CodingCoachingPage() {
                     {['intake', 'analysis', 'template'].map((s, i) => (
                         <div key={s} className="flex items-center gap-4 flex-1">
                             <div className={`w-10 h-10 rounded-full flex items-center justify-center font-black transition-all ${step === s ? 'bg-blue-600 text-white scale-110 shadow-lg' :
-                                    (i < ['intake', 'analysis', 'template'].indexOf(step) ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-400')
+                                (i < ['intake', 'analysis', 'template'].indexOf(step) ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-400')
                                 }`}>
                                 {i < ['intake', 'analysis', 'template'].indexOf(step) ? '✓' : i + 1}
                             </div>
@@ -123,8 +126,8 @@ export default function CodingCoachingPage() {
                                             type="button"
                                             onClick={() => setFormData({ ...formData, targetStack: stack.id })}
                                             className={`p-6 rounded-2xl border-2 transition-all text-left flex items-center gap-4 ${formData.targetStack === stack.id
-                                                    ? 'border-blue-600 bg-blue-50/50 shadow-md'
-                                                    : 'border-gray-100 hover:border-gray-200'
+                                                ? 'border-blue-600 bg-blue-50/50 shadow-md'
+                                                : 'border-gray-100 hover:border-gray-200'
                                                 }`}
                                         >
                                             <span className="text-3xl">{stack.icon}</span>
@@ -181,8 +184,8 @@ export default function CodingCoachingPage() {
                                         type="button"
                                         onClick={() => toggleTopic(topic)}
                                         className={`px-4 py-2 rounded-xl font-bold transition-all ${formData.interestedTopics.includes(topic)
-                                                ? 'bg-blue-600 text-white shadow-md'
-                                                : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                                            ? 'bg-blue-600 text-white shadow-md'
+                                            : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
                                             }`}
                                     >
                                         {topic}
@@ -256,6 +259,7 @@ export default function CodingCoachingPage() {
                                 alert('✅ Kodlama programı başarıyla oluşturuldu ve öğrenciye atandı!')
                                 router.push('/tutor')
                             }}
+                            defaultStudentId={studentIdParam || undefined}
                         />
 
                         <button

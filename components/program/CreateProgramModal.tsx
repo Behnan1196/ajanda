@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { getAssignedPersonas } from '@/app/actions/tutor'
 
 interface Template {
     id: string
@@ -17,7 +18,8 @@ interface CreateProgramModalProps {
     createAction: (templateId: string, studentId: string, startDate: string) => Promise<any>
     title?: string
     moduleIcon?: string
-    defaultStudentId?: string  // Pre-fill student ID (for tutor mode)
+    defaultStudentId?: string
+    onCustomize?: (template: Template) => void
 }
 
 export default function CreateProgramModal({
@@ -27,12 +29,40 @@ export default function CreateProgramModal({
     createAction,
     title = 'Yeni Program Oluştur',
     moduleIcon = '📋',
-    defaultStudentId
+    defaultStudentId,
+    onCustomize
 }: CreateProgramModalProps) {
     const [selectedTemplate, setSelectedTemplate] = useState('')
     const [studentId, setStudentId] = useState(defaultStudentId || '')
+    const [students, setStudents] = useState<any[]>([])
+    const [loadingStudents, setLoadingStudents] = useState(true)
     const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0])
     const [creating, setCreating] = useState(false)
+
+    useEffect(() => {
+        if (templates.length === 1) {
+            setSelectedTemplate(templates[0].id)
+        }
+        loadStudents()
+    }, [templates])
+
+    const loadStudents = async () => {
+        try {
+            const result = await getAssignedPersonas()
+            if (result.success && Array.isArray(result.data)) {
+                setStudents(result.data)
+
+                // If no default student is set, default to the first option (usually Self)
+                if (!defaultStudentId && result.data.length > 0) {
+                    setStudentId(result.data[0].id)
+                }
+            }
+        } catch (e) {
+            console.error('Error loading students:', e)
+        } finally {
+            setLoadingStudents(false)
+        }
+    }
 
     const handleCreate = async () => {
         if (!selectedTemplate) {
@@ -112,29 +142,39 @@ export default function CreateProgramModal({
                         </div>
                     </div>
 
-                    {/* Student ID (Optional) - Only show if not pre-filled */}
-                    {!defaultStudentId && (
-                        <div>
-                            <label className="block text-sm font-bold text-gray-900 mb-3">
-                                2. Öğrenci (Opsiyonel)
-                            </label>
-                            <input
-                                type="text"
-                                value={studentId}
-                                onChange={(e) => setStudentId(e.target.value)}
-                                placeholder="Persona ID (boş bırakırsanız kendinize atanır)"
-                                className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-indigo-500 outline-none"
-                            />
-                            <p className="text-xs text-gray-500 mt-2">
-                                💡 Boş bırakırsanız program size atanır
-                            </p>
-                        </div>
-                    )}
+                    {/* Student Selection (Always visible now) */}
+                    <div>
+                        <label className="block text-sm font-bold text-gray-900 mb-3">
+                            2. Öğrenci (Opsiyonel)
+                        </label>
+                        {loadingStudents ? (
+                            <div className="w-full px-4 py-3 border-2 border-gray-100 rounded-xl bg-gray-50 text-gray-400">
+                                Öğrenci listesi yükleniyor...
+                            </div>
+                        ) : (
+                            <div className="space-y-2">
+                                <select
+                                    value={studentId}
+                                    onChange={(e) => setStudentId(e.target.value)}
+                                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:border-indigo-500 outline-none bg-white"
+                                >
+                                    {students.map(student => (
+                                        <option key={student.id} value={student.id}>
+                                            {student.name} ({student.role || 'Öğrenci'})
+                                        </option>
+                                    ))}
+                                </select>
+                                <p className="text-xs text-gray-500">
+                                    💡 Programın atanacağı kişiyi seçin.
+                                </p>
+                            </div>
+                        )}
+                    </div>
 
                     {/* Start Date */}
                     <div>
                         <label className="block text-sm font-bold text-gray-900 mb-3">
-                            {defaultStudentId ? '2' : '3'}. Başlangıç Tarihi
+                            3. Başlangıç Tarihi
                         </label>
                         <input
                             type="date"
@@ -152,26 +192,42 @@ export default function CreateProgramModal({
                                 <p>• <strong>{selected.tasks.length} görev</strong> oluşturulacak</p>
                                 <p>• Süre: <strong>{selected.duration_days} gün</strong></p>
                                 <p>• Tarih: <strong>{new Date(startDate).toLocaleDateString('tr-TR')}</strong> - <strong>{new Date(new Date(startDate).getTime() + (selected.duration_days - 1) * 24 * 60 * 60 * 1000).toLocaleDateString('tr-TR')}</strong></p>
+                                {studentId && (
+                                    <p>• Atanan: <strong>{students.find(s => s.id === studentId)?.name || 'Bilinmeyen Öğrenci'}</strong></p>
+                                )}
                             </div>
                         </div>
                     )}
                 </div>
 
                 {/* Footer */}
-                <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200">
-                    <button
-                        onClick={onClose}
-                        className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg font-medium transition"
-                    >
-                        İptal
-                    </button>
-                    <button
-                        onClick={handleCreate}
-                        disabled={!selectedTemplate || creating}
-                        className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
-                    >
-                        {creating ? 'Oluşturuluyor...' : '🚀 Programı Oluştur'}
-                    </button>
+                <div className="flex items-center justify-between p-6 border-t border-gray-200">
+                    <div>
+                        {selected && onCustomize && (
+                            <button
+                                onClick={() => onCustomize(selected)}
+                                className="px-4 py-2 border-2 border-orange-200 text-orange-600 rounded-lg text-sm font-bold hover:bg-orange-50 transition flex items-center gap-2"
+                            >
+                                <span>🪄</span>
+                                <span className="hidden sm:inline">Şablonu Özelleştir</span>
+                            </button>
+                        )}
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={onClose}
+                            className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg font-medium transition"
+                        >
+                            İptal
+                        </button>
+                        <button
+                            onClick={handleCreate}
+                            disabled={!selectedTemplate || creating}
+                            className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                        >
+                            {creating ? 'Oluşturuluyor...' : '🚀 Programı Oluştur'}
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

@@ -49,31 +49,54 @@ export default function TemplateGroup({ icon, title, templates, onTemplateClick,
                             </div>
                         </button>
 
-                        {/* Action Buttons for Database Templates */}
-                        {template.source === 'database' && (
-                            <div className="absolute top-4 right-4 flex gap-1 opacity-0 group-hover:opacity-100 transition duration-300">
+                        {/* Action Buttons */}
+                        <div className="absolute top-4 right-4 flex gap-1 bg-white/80 backdrop-blur-sm p-1 rounded-xl shadow-sm border border-gray-100 transition duration-300">
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation()
+                                    onTemplateClick(template)
+                                }}
+                                className="p-1.5 bg-white shadow-sm border border-gray-100 rounded-lg text-gray-400 hover:text-blue-600 hover:scale-110 transition"
+                                title="Görüntüle"
+                            >
+                                👁️
+                            </button>
+                            {template.source === 'database' ? (
+                                <>
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation()
+                                            onEdit?.(template)
+                                        }}
+                                        className="p-1.5 bg-white shadow-sm border border-gray-100 rounded-lg text-gray-400 hover:text-purple-600 hover:scale-110 transition"
+                                        title="Düzenle"
+                                    >
+                                        ✏️
+                                    </button>
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation()
+                                            onDelete?.(template)
+                                        }}
+                                        className="p-1.5 bg-white shadow-sm border border-gray-100 rounded-lg text-gray-400 hover:text-red-600 hover:scale-110 transition"
+                                        title="Sil"
+                                    >
+                                        🗑️
+                                    </button>
+                                </>
+                            ) : (
                                 <button
                                     onClick={(e) => {
                                         e.stopPropagation()
                                         onEdit?.(template)
                                     }}
-                                    className="p-1.5 bg-white shadow-lg border border-gray-100 rounded-lg text-gray-400 hover:text-purple-600 hover:scale-110 transition"
-                                    title="Düzenle"
+                                    className="p-1.5 bg-white shadow-sm border border-gray-100 rounded-lg text-gray-400 hover:text-orange-500 hover:scale-110 transition"
+                                    title="Özelleştir (Kopyasını Oluştur)"
                                 >
-                                    ✏️
+                                    🪄
                                 </button>
-                                <button
-                                    onClick={(e) => {
-                                        e.stopPropagation()
-                                        onDelete?.(template)
-                                    }}
-                                    className="p-1.5 bg-white shadow-lg border border-gray-100 rounded-lg text-gray-400 hover:text-red-600 hover:scale-110 transition"
-                                    title="Sil"
-                                >
-                                    🗑️
-                                </button>
-                            </div>
-                        )}
+                            )}
+                        </div>
                     </div>
                 ))}
             </div>

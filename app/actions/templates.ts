@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { getSimpleTemplate } from '@/lib/templates/simple'
 import { getExamTemplate } from '@/lib/templates/exam'
@@ -23,12 +24,33 @@ export async function createProgramFromSimpleTemplate(
     const moduleType = (template as any).exam_type ? 'exam' :
         templateId.startsWith('coding-') ? 'coding' : 'general'
 
+    // 3. Hedef user'ı belirle (persona varsa onun user'ı, yoksa direkt studentId)
+    let targetUserId = user.id  // Default: kendisi
+
+    if (studentId) {
+        const { data: persona } = await supabase
+            .from('personas')
+            .select('user_id')
+            .eq('id', studentId)
+            .single()
+
+        if (persona) {
+            targetUserId = persona.user_id
+        } else {
+            // Persona değilse, direkt User ID olarak dene
+            targetUserId = studentId
+        }
+    }
+
     try {
         // 1. Proje oluştur
-        const { data: project, error: projectError } = await supabase
+        // RLS bypass için admin client kullan
+        const supabaseClient = targetUserId === user.id ? supabase : createAdminClient()
+
+        const { data: project, error: projectError } = await supabaseClient
             .from('projects')
             .insert({
-                user_id: user.id,
+                user_id: targetUserId, // Fix: Use student's ID as the owner
                 name: template.name,
                 description: template.description,
                 status: 'active',
@@ -37,7 +59,9 @@ export async function createProgramFromSimpleTemplate(
                     duration_days: template.duration_days,
                     start_date: startDate,
                     template_id: templateId,
-                    student_id: studentId
+                    student_id: studentId,
+                    is_coach_project: targetUserId !== user.id, // Only flag if assigned to someone else
+                    created_by: user.id
                 }
             })
             .select()
@@ -57,22 +81,6 @@ export async function createProgramFromSimpleTemplate(
         if (!taskType) {
             await supabase.from('projects').delete().eq('id', project.id)
             return { error: 'Task type bulunamadı' }
-        }
-
-        // 3. Hedef user'ı belirle (persona varsa onun user'ı, yoksa kendisi)
-        let targetUserId = user.id  // Default: kendisi
-
-        if (studentId) {
-            const { data: persona } = await supabase
-                .from('personas')
-                .select('user_id')
-                .eq('id', studentId)
-                .single()
-
-            if (persona) {
-                targetUserId = persona.user_id
-            }
-            // Persona bulunamazsa da devam et, kendine ata
         }
 
         // 4. Task'ları oluştur

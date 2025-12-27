@@ -23,6 +23,7 @@ export async function getAssignedPersonas() {
     }
 
     // Fetch personas assigned to this tutor
+    console.log('getAssignedPersonas Debug: Fetching for coach', user.id)
     const { data: personas, error } = await supabase
         .from('user_relationships')
         .select(`
@@ -41,6 +42,8 @@ export async function getAssignedPersonas() {
         console.error('Error fetching personas:', error)
         return { error: error.message }
     }
+
+    console.log('getAssignedPersonas Debug: Raw results', personas?.length)
 
     // Flatten the response and group by student ID
     const studentMap = new Map<string, any>()

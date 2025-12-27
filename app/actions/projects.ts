@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 
 export interface Project {
@@ -15,16 +16,43 @@ export interface Project {
     created_at: string
 }
 
-export async function getProjects() {
+export async function getProjects(userId?: string, filter: 'all' | 'personal' | 'coach' = 'all') {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return { error: 'Oturum açılmamış' }
 
-    const { data, error } = await supabase
+    // Eğer userId belirtilmişse o kullanıcının projelerini getir (Koç modu), 
+    // aksi takdirde kendi projelerimi getir.
+    // ÖNEMLİ: Gelen userId bir persona id'si olabilir, projects tablosu ise user_id (UUID) kullanıyor.
+    let targetUserId = userId || user.id
+    if (userId) {
+        const { data: persona } = await supabase
+            .from('personas')
+            .select('user_id')
+            .eq('id', userId)
+            .single()
+
+        if (persona) {
+            targetUserId = persona.user_id
+        }
+    }
+
+
+    let query = supabase
         .from('projects')
         .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
+        .eq('user_id', targetUserId)
+
+    if (filter === 'personal') {
+        // settings->is_coach_project null veya false olanlar
+        // JSONB içinde boolean veya string olarak saklanmış olabilir
+        query = query.or('settings->is_coach_project.is.null,settings->is_coach_project.eq.false,settings->>is_coach_project.eq.false')
+    } else if (filter === 'coach') {
+        // settings->is_coach_project true olanlar
+        query = query.or('settings->is_coach_project.eq.true,settings->>is_coach_project.eq.true')
+    }
+
+    const { data, error } = await query.order('created_at', { ascending: false })
 
     if (error) return { error: error.message }
     return { data: data as Project[] }
@@ -427,7 +455,7 @@ export async function createProjectFromTemplate(
             return { error: 'Şablon bulunamadı' }
         }
 
-        // 2. Determine target user
+        // 2. Determine target user (Persona ID or Direct User ID)
         let targetUserId = user.id
         if (studentId) {
             const { data: persona } = await supabase
@@ -438,23 +466,31 @@ export async function createProjectFromTemplate(
 
             if (persona) {
                 targetUserId = persona.user_id
+            } else {
+                // If not found in personas, assume it's a direct User ID
+                targetUserId = studentId
             }
         }
 
         // 3. Create new project
-        const { data: newProject, error: projectError } = await supabase
+        // If creating for another user, use admin client to bypass RLS
+        const supabaseClient = targetUserId === user.id ? supabase : createAdminClient()
+
+        const { data: newProject, error: projectError } = await supabaseClient
             .from('projects')
             .insert({
-                user_id: user.id,
+                user_id: targetUserId, // Fix: Use student's ID as the owner
                 name: template.name,
                 description: template.description,
                 status: 'active',
                 start_date: startDate,
                 settings: {
-                    ...template.settings,
+                    duration_days: template.duration_days,
+                    is_template: false,
+                    is_coach_project: targetUserId !== user.id, // Only flag if assigned to someone else
+                    created_by: user.id,
                     template_id: templateId,
-                    student_id: studentId,
-                    start_date: startDate
+                    student_id: studentId
                 }
             })
             .select()

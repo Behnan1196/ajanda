@@ -3,9 +3,11 @@ import { getProjects, createProject, updateProject, deleteProject, Project } fro
 
 interface ProjectListViewProps {
     onProjectSelect: (project: Project) => void
+    userId?: string
+    filter?: 'all' | 'personal' | 'coach'
 }
 
-export default function ProjectListView({ onProjectSelect }: ProjectListViewProps) {
+export default function ProjectListView({ onProjectSelect, userId, filter = 'all' }: ProjectListViewProps) {
     const [projects, setProjects] = useState<Project[]>([])
     const [loading, setLoading] = useState(true)
     const [name, setName] = useState('')
@@ -14,7 +16,7 @@ export default function ProjectListView({ onProjectSelect }: ProjectListViewProp
 
     const loadProjects = async () => {
         setLoading(true)
-        const result = await getProjects()
+        const result = await getProjects(userId, filter)
         if (result.data) {
             setProjects(result.data)
         }
@@ -23,7 +25,7 @@ export default function ProjectListView({ onProjectSelect }: ProjectListViewProp
 
     useEffect(() => {
         loadProjects()
-    }, [])
+    }, [userId, filter])
 
     const handleCreateProject = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -83,8 +85,8 @@ export default function ProjectListView({ onProjectSelect }: ProjectListViewProp
         <div className="animate-in fade-in duration-500">
             <div className="flex items-center justify-between mb-6">
                 <div>
-                    <h2 className="text-xl font-bold text-gray-900">Projelerim</h2>
-                    <p className="text-sm text-gray-500">Karmaşık hedeflerinizi yönetin.</p>
+                    <h2 className="text-xl font-bold text-gray-900">{userId ? 'Öğrenci Projeleri' : 'Projelerim'}</h2>
+                    <p className="text-sm text-gray-500">{userId ? 'Öğrencinin aktif süreçleri.' : 'Karmaşık hedeflerinizi yönetin.'}</p>
                 </div>
                 {!editingProject && !isCreating && (
                     <button

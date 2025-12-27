@@ -12,9 +12,10 @@ import { createProgramFromSimpleTemplate } from '@/app/actions/templates'
 
 interface TutorToolsViewProps {
     onSelectTool: (tool: string) => void
+    selectedStudentId?: string
 }
 
-export default function TutorToolsView({ onSelectTool }: TutorToolsViewProps) {
+export default function TutorToolsView({ onSelectTool, selectedStudentId }: TutorToolsViewProps) {
     const router = useRouter()
     const [templates, setTemplates] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
@@ -53,13 +54,29 @@ export default function TutorToolsView({ onSelectTool }: TutorToolsViewProps) {
         setLoading(false)
     }
 
+    const getToolUrl = (path: string) => {
+        return selectedStudentId ? `${path}?studentId=${selectedStudentId}` : path
+    }
+
     const handleTemplateClick = (template: any) => {
         setSelectedTemplate(template)
         setShowUseModal(true)
     }
 
     const handleEditTemplate = (template: any) => {
-        router.push(`/tutor/template-editor/${template.id}`)
+        if (template.source === 'code') {
+            // Sistem şablonu özelleştirme: Builder'a şablon verisi ile yönlendir
+            const encodedData = encodeURIComponent(JSON.stringify({
+                name: `${template.name} (Kopyası)`,
+                description: template.description,
+                moduleType: template.moduleType,
+                durationDays: template.duration_days,
+                tasks: template.tasks
+            }))
+            router.push(`/tutor/template-builder?from=${encodedData}`)
+        } else {
+            router.push(`/tutor/template-editor/${template.id}`)
+        }
     }
 
     const handleDeleteTemplate = async (template: any) => {
@@ -94,9 +111,9 @@ export default function TutorToolsView({ onSelectTool }: TutorToolsViewProps) {
                     <h2 className="text-xl font-black text-gray-900 tracking-tight">Uzmanlık Masası</h2>
                     <p className="text-gray-500 text-xs font-medium">Özel araçlar üzerinden detaylı yönetim yapın.</p>
                 </div>
-                <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+                <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
                     <button
-                        onClick={() => router.push('/tutor/nutrition')}
+                        onClick={() => router.push(getToolUrl('/tutor/nutrition'))}
                         className="bg-white border border-gray-200 rounded-3xl p-6 text-center hover:border-purple-300 hover:shadow-xl hover:shadow-purple-100/30 transition-all group"
                     >
                         <span className="text-4xl block mb-3 group-hover:scale-110 transition duration-300">🍏</span>
@@ -104,7 +121,7 @@ export default function TutorToolsView({ onSelectTool }: TutorToolsViewProps) {
                         <p className="text-[10px] text-gray-400 mt-1 uppercase font-bold">Kişiye Özel</p>
                     </button>
                     <button
-                        onClick={() => router.push('/tutor/music')}
+                        onClick={() => router.push(getToolUrl('/tutor/music'))}
                         className="bg-white border border-gray-200 rounded-3xl p-6 text-center hover:border-purple-300 hover:shadow-xl hover:shadow-purple-100/30 transition-all group"
                     >
                         <span className="text-4xl block mb-3 group-hover:scale-110 transition duration-300">🎸</span>
@@ -112,7 +129,7 @@ export default function TutorToolsView({ onSelectTool }: TutorToolsViewProps) {
                         <p className="text-[10px] text-gray-400 mt-1 uppercase font-bold">Pratik & Gelişim</p>
                     </button>
                     <button
-                        onClick={() => router.push('/tutor/coding')}
+                        onClick={() => router.push(getToolUrl('/tutor/coding'))}
                         className="bg-white border border-gray-200 rounded-3xl p-6 text-center hover:border-indigo-300 hover:shadow-xl hover:shadow-indigo-100/30 transition-all group"
                     >
                         <span className="text-4xl block mb-3 group-hover:scale-110 transition duration-300">💻</span>
@@ -120,7 +137,7 @@ export default function TutorToolsView({ onSelectTool }: TutorToolsViewProps) {
                         <p className="text-[10px] text-gray-400 mt-1 uppercase font-bold">Teknoloji & Kod</p>
                     </button>
                     <button
-                        onClick={() => router.push('/tutor/exam')}
+                        onClick={() => router.push(getToolUrl('/tutor/exam'))}
                         className="bg-white border border-gray-200 rounded-3xl p-6 text-center hover:border-blue-300 hover:shadow-xl hover:shadow-blue-100/30 transition-all group"
                     >
                         <span className="text-4xl block mb-3 group-hover:scale-110 transition duration-300">📚</span>
@@ -128,7 +145,7 @@ export default function TutorToolsView({ onSelectTool }: TutorToolsViewProps) {
                         <p className="text-[10px] text-gray-400 mt-1 uppercase font-bold">TYT & AYT</p>
                     </button>
                     <button
-                        onClick={() => router.push('/tutor/general')}
+                        onClick={() => router.push(getToolUrl('/tutor/general'))}
                         className="bg-white border border-gray-200 rounded-3xl p-6 text-center hover:border-green-300 hover:shadow-xl hover:shadow-green-100/30 transition-all group"
                     >
                         <span className="text-4xl block mb-3 group-hover:scale-110 transition duration-300">🎯</span>
@@ -231,7 +248,8 @@ export default function TutorToolsView({ onSelectTool }: TutorToolsViewProps) {
                         alert('✅ Program oluşturuldu!')
                     }}
                     createAction={handleCreateProgram}
-                    title={`${selectedTemplate.name} - Program Oluştur`}
+                    onCustomize={handleEditTemplate}
+                    title={selectedTemplate.source === 'code' && !showUseModal ? `${selectedTemplate.name} - Detaylar` : `${selectedTemplate.name} - Program Oluştur`}
                     moduleIcon={
                         selectedTemplate.moduleType === 'exam' ? '📚' :
                             selectedTemplate.moduleType === 'nutrition' ? '🍏' :

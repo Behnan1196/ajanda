@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, use } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createTemplateFromBuilder } from '@/app/actions/projects'
 import TaskFormModal from '@/components/tutor/TaskFormModal'
 import { DndContext, closestCenter, DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
@@ -98,8 +98,10 @@ function SortableTask({
     )
 }
 
-export default function TemplateBuilderPage() {
+function TemplateBuilderContent() {
     const router = useRouter()
+    const searchParams = useSearchParams()
+
     const [templateData, setTemplateData] = useState({
         name: '',
         description: '',
@@ -112,6 +114,30 @@ export default function TemplateBuilderPage() {
     const [editingTask, setEditingTask] = useState<Task | undefined>(undefined)
     const [currentParentId, setCurrentParentId] = useState<string | undefined>(undefined)
 
+    useEffect(() => {
+        const fromData = searchParams.get('from')
+        if (fromData) {
+            try {
+                const data = JSON.parse(decodeURIComponent(fromData))
+                setTemplateData({
+                    name: data.name,
+                    description: data.description,
+                    moduleType: data.moduleType,
+                    durationDays: data.durationDays
+                })
+                if (data.tasks) {
+                    setTasks(data.tasks.map((t: any) => ({
+                        ...t,
+                        id: t.id || Math.random().toString(36).substr(2, 9),
+                        duration: t.duration || t.duration_minutes || 60
+                    })))
+                }
+            } catch (e) {
+                console.error('Failed to parse template data:', e)
+            }
+        }
+    }, [searchParams])
+
     const sensors = useSensors(
         useSensor(PointerSensor, {
             activationConstraint: {
@@ -122,9 +148,6 @@ export default function TemplateBuilderPage() {
 
     const handleSave = async () => {
         setSaving(true)
-        // Flatten tasks to send to server - ensuring subtasks come after parents if needed, 
-        // though our current server action handles simple list.
-        // We'll need to update createTemplateFromBuilder to support parent_id.
         const result = await createTemplateFromBuilder(templateData, tasks)
         setSaving(false)
 
@@ -163,7 +186,6 @@ export default function TemplateBuilderPage() {
         if (editingTask) {
             setTasks(tasks.map(t => t.id === taskData.id ? taskWithParent : t))
         } else {
-            // If it's a subtask, insert it after the parent
             if (currentParentId) {
                 const parentIndex = tasks.findIndex(t => t.id === currentParentId)
                 const newTasks = [...tasks]
@@ -180,7 +202,6 @@ export default function TemplateBuilderPage() {
 
     const handleDeleteTask = (taskId: string) => {
         if (confirm('Bu görevi silmek istediğinize emin misiniz?')) {
-            // Also delete subtasks if it's a parent
             setTasks(tasks.filter(t => t.id !== taskId && t.parent_id !== taskId))
         }
     }
@@ -188,7 +209,6 @@ export default function TemplateBuilderPage() {
     return (
         <div className="min-h-screen bg-gray-50 p-8">
             <div className="max-w-6xl mx-auto">
-                {/* Header */}
                 <div className="mb-8">
                     <button
                         onClick={() => router.back()}
@@ -198,13 +218,11 @@ export default function TemplateBuilderPage() {
                     </button>
                     <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
                         <span className="text-4xl">✨</span>
-                        Yeni Şablon Oluştur
+                        {templateData.name ? 'Şablonu Özelleştir' : 'Yeni Şablon Oluştur'}
                     </h1>
                 </div>
 
-                {/* Main Content */}
                 <div className="bg-white rounded-2xl p-8 border border-gray-200">
-                    {/* Basic Info */}
                     <div className="grid grid-cols-2 gap-6 mb-8">
                         <div className="col-span-2">
                             <label className="block text-sm font-bold text-gray-900 mb-2">
@@ -230,7 +248,8 @@ export default function TemplateBuilderPage() {
                             >
                                 <option value="exam">📚 Sınav Koçluğu</option>
                                 <option value="nutrition">🍏 Beslenme</option>
-                                <option value="music">Guitar Müzik</option>
+                                <option value="music">🎸 Müzik</option>
+                                <option value="coding">💻 Yazılım/Kodlama</option>
                                 <option value="general">📋 Genel</option>
                             </select>
                         </div>
@@ -264,7 +283,6 @@ export default function TemplateBuilderPage() {
 
                     <div className="h-[1px] bg-gray-200 my-8"></div>
 
-                    {/* Tasks Section */}
                     <div>
                         <div className="flex items-center justify-between mb-6">
                             <h3 className="text-xl font-bold text-gray-900">Görevler</h3>
@@ -305,7 +323,6 @@ export default function TemplateBuilderPage() {
                         )}
                     </div>
 
-                    {/* Actions */}
                     <div className="flex justify-end gap-4 mt-8 pt-8 border-t border-gray-200">
                         <button
                             onClick={handleSave}
@@ -317,7 +334,6 @@ export default function TemplateBuilderPage() {
                     </div>
                 </div>
 
-                {/* Task Modal */}
                 {showTaskModal && (
                     <TaskFormModal
                         task={editingTask as any}
@@ -332,5 +348,20 @@ export default function TemplateBuilderPage() {
                 )}
             </div>
         </div>
+    )
+}
+
+export default function TemplateBuilderPage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                <div className="text-center">
+                    <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mb-4"></div>
+                    <p className="text-gray-600 text-sm font-medium">Yükleniyor...</p>
+                </div>
+            </div>
+        }>
+            <TemplateBuilderContent />
+        </Suspense>
     )
 }

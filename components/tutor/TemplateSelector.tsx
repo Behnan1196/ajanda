@@ -12,9 +12,10 @@ import { createProjectFromTemplate } from '@/app/actions/projects'
 interface TemplateSelectorProps {
     moduleType: 'exam' | 'nutrition' | 'music' | 'general' | 'coding'
     onSuccess: () => void
+    defaultStudentId?: string
 }
 
-export default function TemplateSelector({ moduleType, onSuccess }: TemplateSelectorProps) {
+export default function TemplateSelector({ moduleType, onSuccess, defaultStudentId }: TemplateSelectorProps) {
     const [templates, setTemplates] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
     const [selectedTemplate, setSelectedTemplate] = useState<any>(null)
@@ -153,6 +154,7 @@ export default function TemplateSelector({ moduleType, onSuccess }: TemplateSele
                     }}
                     createAction={handleCreateProgram}
                     title={`${selectedTemplate.name} - Programı Uygula`}
+                    defaultStudentId={defaultStudentId}
                 />
             )}
         </div>

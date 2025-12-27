@@ -1,11 +1,14 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import TemplateSelector from '@/components/tutor/TemplateSelector'
 
 export default function GeneralCoachingPage() {
     const router = useRouter()
+    const searchParams = useSearchParams()
+    const studentIdParam = searchParams?.get('studentId')
+
     const [step, setStep] = useState<'intake' | 'template'>('intake')
     const [formData, setFormData] = useState({
         goal: '',
@@ -101,6 +104,7 @@ export default function GeneralCoachingPage() {
                                 alert('✅ Program oluşturuldu!')
                                 router.push('/tutor')
                             }}
+                            defaultStudentId={studentIdParam || undefined}
                         />
 
                         <button
