@@ -77,7 +77,8 @@ export async function createProgramFromSimpleTemplate(
 
         // 4. Task'ları oluştur
         const start = new Date(startDate)
-        const tasksToInsert = template.tasks.map((task, index) => {
+        for (let i = 0; i < template.tasks.length; i++) {
+            const task = template.tasks[i]
             const taskDate = new Date(start)
             taskDate.setDate(taskDate.getDate() + (task.day - 1))
             const taskDateStr = taskDate.toISOString().split('T')[0]
@@ -94,31 +95,29 @@ export async function createProgramFromSimpleTemplate(
             }
             descriptionParts.push(`\nGün: ${task.day}`)
 
-            return {
-                project_id: project.id,
-                user_id: targetUserId,
-                task_type_id: taskType.id,
-                title: task.title,
-                description: descriptionParts.join(''),
-                start_date: taskDateStr,
-                due_date: taskDateStr,
-                duration_minutes: task.duration,
-                sort_order: index,
-                is_completed: false,
-                created_by: user.id,
-                assigned_to: targetUserId,
-                assigned_by: user.id
+            const { error: taskError } = await supabase
+                .from('tasks')
+                .insert({
+                    project_id: project.id,
+                    user_id: targetUserId,
+                    task_type_id: taskType.id,
+                    title: task.title,
+                    description: descriptionParts.join('\n'),
+                    start_date: taskDateStr,
+                    due_date: taskDateStr,
+                    duration_minutes: taskAny.duration || taskAny.duration_minutes || 0,
+                    sort_order: i,
+                    is_completed: false,
+                    created_by: user.id,
+                    assigned_to: targetUserId,
+                    assigned_by: user.id
+                })
+
+            if (taskError) {
+                // Hata durumunda oluşturulan projeyi temizle
+                await supabase.from('projects').delete().eq('id', project.id)
+                return { error: `Görev oluşturulurken hata (${task.title}): ` + taskError.message }
             }
-        })
-
-        const { error: tasksError } = await supabase
-            .from('tasks')
-            .insert(tasksToInsert)
-
-        if (tasksError) {
-            // Proje oluşturuldu ama task'lar eklenemedi, projeyi sil
-            await supabase.from('projects').delete().eq('id', project.id)
-            return { error: 'Görevler oluşturulamadı: ' + tasksError.message }
         }
 
         revalidatePath('/tutor')

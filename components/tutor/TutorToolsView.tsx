@@ -7,6 +7,7 @@ import TemplateGroup from './TemplateGroup'
 import CreateProgramModal from '@/components/program/CreateProgramModal'
 import { examTemplates } from '@/lib/templates/exam'
 import { simpleTemplates } from '@/lib/templates/simple'
+import { codingTemplates } from '@/lib/templates/coding'
 import { createProgramFromSimpleTemplate } from '@/app/actions/templates'
 
 interface TutorToolsViewProps {
@@ -30,8 +31,8 @@ export default function TutorToolsView({ onSelectTool }: TutorToolsViewProps) {
         // 1. Code templates
         const codeTemplates = [
             ...examTemplates.map(t => ({ ...t, source: 'code', moduleType: 'exam' })),
-            ...simpleTemplates.map(t => ({ ...t, source: 'code', moduleType: 'general' }))
-            // TODO: Add nutrition and music templates when ready
+            ...simpleTemplates.map(t => ({ ...t, source: 'code', moduleType: 'general' })),
+            ...codingTemplates.map(t => ({ ...t, source: 'code', moduleType: 'coding' }))
         ]
 
         // 2. Database templates
