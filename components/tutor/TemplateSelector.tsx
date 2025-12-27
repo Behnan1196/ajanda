@@ -3,13 +3,14 @@
 import { useState, useEffect } from 'react'
 import { getTemplates } from '@/app/actions/projects'
 import { examTemplates } from '@/lib/templates/exam'
+import { codingTemplates } from '@/lib/templates/coding'
 import { simpleTemplates } from '@/lib/templates/simple'
 import CreateProgramModal from '@/components/program/CreateProgramModal'
 import { createProgramFromSimpleTemplate } from '@/app/actions/templates'
 import { createProjectFromTemplate } from '@/app/actions/projects'
 
 interface TemplateSelectorProps {
-    moduleType: 'exam' | 'nutrition' | 'music' | 'general'
+    moduleType: 'exam' | 'nutrition' | 'music' | 'general' | 'coding'
     onSuccess: () => void
 }
 
@@ -30,6 +31,8 @@ export default function TemplateSelector({ moduleType, onSuccess }: TemplateSele
         let codeTemplates: any[] = []
         if (moduleType === 'exam') {
             codeTemplates = examTemplates.map(t => ({ ...t, source: 'code', moduleType: 'exam' }))
+        } else if (moduleType === 'coding') {
+            codeTemplates = codingTemplates.map(t => ({ ...t, source: 'code', moduleType: 'coding' }))
         } else if (moduleType === 'general') {
             codeTemplates = simpleTemplates.map(t => ({ ...t, source: 'code', moduleType: 'general' }))
         }
@@ -92,8 +95,8 @@ export default function TemplateSelector({ moduleType, onSuccess }: TemplateSele
                         key={template.id}
                         onClick={() => handleTemplateClick(template)}
                         className={`text-left p-6 rounded-[2rem] border-2 transition-all duration-300 group relative overflow-hidden ${template.source === 'database'
-                                ? 'bg-white border-gray-100 hover:border-purple-300 hover:shadow-xl hover:shadow-purple-100/50'
-                                : 'bg-blue-50/30 border-blue-100 hover:border-blue-400 hover:shadow-xl hover:shadow-blue-100/50'
+                            ? 'bg-white border-gray-100 hover:border-purple-300 hover:shadow-xl hover:shadow-purple-100/50'
+                            : 'bg-blue-50/30 border-blue-100 hover:border-blue-400 hover:shadow-xl hover:shadow-blue-100/50'
                             }`}
                     >
                         {/* Decorative background circle */}

@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { getSimpleTemplate } from '@/lib/templates/simple'
 import { getExamTemplate } from '@/lib/templates/exam'
+import { getCodingTemplate } from '@/lib/templates/coding'
 
 export async function createProgramFromSimpleTemplate(
     templateId: string,
@@ -14,12 +15,13 @@ export async function createProgramFromSimpleTemplate(
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return { error: 'Oturum açılmamış' }
 
-    // Şablonu bul (simple veya exam)
-    const template = getSimpleTemplate(templateId) || getExamTemplate(templateId)
+    // Şablonu bul (simple, exam veya coding)
+    const template = getSimpleTemplate(templateId) || getExamTemplate(templateId) || getCodingTemplate(templateId)
     if (!template) return { error: 'Şablon bulunamadı' }
 
     // Module type'ı belirle
-    const moduleType = (template as any).exam_type ? 'exam' : 'general'
+    const moduleType = (template as any).exam_type ? 'exam' :
+        templateId.startsWith('coding-') ? 'coding' : 'general'
 
     try {
         // 1. Proje oluştur
@@ -81,7 +83,7 @@ export async function createProgramFromSimpleTemplate(
             const taskDateStr = taskDate.toISOString().split('T')[0]
 
             const taskAny = task as any
-            const descriptionParts = [task.description]
+            const descriptionParts = [taskAny.description || '']
 
             if (taskAny.subject) {
                 descriptionParts.push(`\nKonu: ${taskAny.subject}`)

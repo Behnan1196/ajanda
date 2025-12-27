@@ -93,7 +93,7 @@ export default function TutorToolsView({ onSelectTool }: TutorToolsViewProps) {
                     <h2 className="text-xl font-black text-gray-900 tracking-tight">Uzmanlık Masası</h2>
                     <p className="text-gray-500 text-xs font-medium">Özel araçlar üzerinden detaylı yönetim yapın.</p>
                 </div>
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
                     <button
                         onClick={() => router.push('/tutor/nutrition')}
                         className="bg-white border border-gray-200 rounded-3xl p-6 text-center hover:border-purple-300 hover:shadow-xl hover:shadow-purple-100/30 transition-all group"
@@ -109,6 +109,14 @@ export default function TutorToolsView({ onSelectTool }: TutorToolsViewProps) {
                         <span className="text-4xl block mb-3 group-hover:scale-110 transition duration-300">🎸</span>
                         <h3 className="font-bold text-gray-900 group-hover:text-purple-600 transition">Müzik Koçluğu</h3>
                         <p className="text-[10px] text-gray-400 mt-1 uppercase font-bold">Pratik & Gelişim</p>
+                    </button>
+                    <button
+                        onClick={() => router.push('/tutor/coding')}
+                        className="bg-white border border-gray-200 rounded-3xl p-6 text-center hover:border-indigo-300 hover:shadow-xl hover:shadow-indigo-100/30 transition-all group"
+                    >
+                        <span className="text-4xl block mb-3 group-hover:scale-110 transition duration-300">💻</span>
+                        <h3 className="font-bold text-gray-900 group-hover:text-indigo-600 transition">Yazılım Koçluğu</h3>
+                        <p className="text-[10px] text-gray-400 mt-1 uppercase font-bold">Teknoloji & Kod</p>
                     </button>
                     <button
                         onClick={() => router.push('/tutor/exam')}
@@ -189,6 +197,16 @@ export default function TutorToolsView({ onSelectTool }: TutorToolsViewProps) {
                             onDelete={handleDeleteTemplate}
                         />
 
+                        {/* Coding Templates */}
+                        <TemplateGroup
+                            icon="💻"
+                            title="Yazılım/Kodlama"
+                            templates={templates.filter(t => t.moduleType === 'coding')}
+                            onTemplateClick={handleTemplateClick}
+                            onEdit={handleEditTemplate}
+                            onDelete={handleDeleteTemplate}
+                        />
+
                         {/* General Templates */}
                         <TemplateGroup
                             icon="📋"
@@ -216,7 +234,8 @@ export default function TutorToolsView({ onSelectTool }: TutorToolsViewProps) {
                     moduleIcon={
                         selectedTemplate.moduleType === 'exam' ? '📚' :
                             selectedTemplate.moduleType === 'nutrition' ? '🍏' :
-                                selectedTemplate.moduleType === 'music' ? '🎸' : '📋'
+                                selectedTemplate.moduleType === 'coding' ? '💻' :
+                                    selectedTemplate.moduleType === 'music' ? '🎸' : '📋'
                     }
                 />
             )}
