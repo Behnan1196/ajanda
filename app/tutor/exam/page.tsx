@@ -296,7 +296,7 @@ export default function ExamCoachingPage() {
                     <div className="bg-white rounded-2xl p-8 border border-gray-200">
                         <h3 className="text-xl font-bold text-gray-900 mb-2">📚 Şablon Seçimi</h3>
                         <p className="text-gray-600 mb-8">
-                            {analysis.difficulty === 'high' ? '⚠️ Yoğun bir tempoda çalışmanız gerekecek. ' : ''}
+                            {analysis?.difficulty === 'high' ? '⚠️ Yoğun bir tempoda çalışmanız gerekecek. ' : ''}
                             Öğrenciniz için en uygun programı seçin:
                         </p>
 

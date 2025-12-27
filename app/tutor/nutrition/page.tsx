@@ -290,7 +290,7 @@ export default function NutritionCoachingPage() {
                     <div className="bg-white rounded-2xl p-8 border border-gray-200">
                         <h3 className="text-xl font-bold text-gray-900 mb-2">🍽️ Şablon Seçimi</h3>
                         <p className="text-gray-600 mb-8">
-                            Günlük <strong>{analysis.targetCalories} kalori</strong> hedefine ulaşmak için bir şablon seçin:
+                            Günlük <strong>{analysis?.targetCalories} kalori</strong> hedefine ulaşmak için bir şablon seçin:
                         </p>
 
                         <TemplateSelector
