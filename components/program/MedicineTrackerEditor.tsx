@@ -152,7 +152,8 @@ export default function MedicineTrackerEditor({ project, tasks, onUpdate }: Medi
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {Object.entries(groupedMedicines).map(([name, tasks]) => (
+                        {/* @ts-ignore */}
+                        {Object.entries(groupedMedicines).map(([name, medTasks]: [string, any]) => (
                             <div key={name} className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm relative group">
                                 <button
                                     onClick={() => handleDeleteMedicine(name)}
@@ -165,7 +166,7 @@ export default function MedicineTrackerEditor({ project, tasks, onUpdate }: Medi
                                     {name}
                                 </h4>
                                 <div className="space-y-2">
-                                    {tasks.map((t: any) => (
+                                    {medTasks.map((t: any) => (
                                         <div key={t.id} className="flex items-center justify-between text-xs bg-gray-50 p-2 rounded-lg">
                                             <span className="font-medium text-gray-600 flex items-center gap-1">
                                                 <Clock size={12} />
@@ -217,8 +218,8 @@ export default function MedicineTrackerEditor({ project, tasks, onUpdate }: Medi
                                             key={num}
                                             onClick={() => handleFrequencyChange(num)}
                                             className={`flex-1 py-3 rounded-xl font-bold border-2 transition ${frequency === num
-                                                    ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
-                                                    : 'border-gray-100 hover:border-indigo-200 text-gray-500'
+                                                ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+                                                : 'border-gray-100 hover:border-indigo-200 text-gray-500'
                                                 }`}
                                         >
                                             {num}x
