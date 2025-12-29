@@ -14,7 +14,6 @@ import AIPersonaAnalysis from './tutor/AIPersonaAnalysis'
 import { subscribeUserToPush } from '@/lib/notifications'
 import LifeHubView from './program/LifeHubView'
 import TutorToolsView from './tutor/TutorToolsView'
-import { useOfflineSync } from '@/hooks/useOfflineSync'
 import ProjectListView from './program/ProjectListView'
 import ProjectDetailsView from './program/ProjectDetailsView'
 import { Project } from '@/app/actions/projects'
@@ -47,9 +46,6 @@ export default function DashboardTabs({ user, isTutorMode = false, initialPerson
 
     const themeColor = isTutorMode ? 'purple' : 'indigo'
     const targetUserId = selectedPersona ? selectedPersona.id : user.id
-
-    // Initialize background sync for the persona's own data
-    useOfflineSync(user.id)
 
     useEffect(() => {
         // Refresh push subscription if permission is granted
@@ -185,10 +181,11 @@ export default function DashboardTabs({ user, isTutorMode = false, initialPerson
                                         </button>
                                     )}
                                     <button
-                                        onClick={async () => {
+                                        onClick={() => {
                                             if (confirm('Sistemi sıfırlamak istediğinize emin misiniz? Bu işlem cihazınızdaki önbelleği temizleyecektir.')) {
-                                                const { resetDatabase } = await import('@/lib/db')
-                                                await resetDatabase()
+                                                localStorage.clear()
+                                                sessionStorage.clear()
+                                                window.location.reload()
                                             }
                                         }}
                                         className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition flex items-center gap-2 border-t border-gray-50 mt-1"

@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { db } from '@/lib/db'
 
 interface Subject {
     id: string
@@ -100,25 +99,26 @@ export default function HabitFormModal({
         }
 
         if (isEditMode && editingHabit) {
-            // Local Update
-            await db.habits.update(editingHabit.id, { ...habitData, is_dirty: 1 })
-
             const { error } = await supabase
                 .from('habits')
                 .update(habitData)
                 .eq('id', editingHabit.id)
 
             if (!error) {
-                await db.habits.update(editingHabit.id, { is_dirty: 0 })
                 onSaved()
             } else {
                 console.error('Remote habit update failed:', error)
-                onSaved() // Still close as local is updated
             }
         } else {
-            // Get max sort_order from local first
-            const maxLocal = await db.habits.where('user_id').equals(userId).reverse().sortBy('sort_order')
-            const newSortOrder = (maxLocal[0]?.sort_order ?? -1) + 1
+            // Get max sort_order from Supabase
+            const { data: maxHabit } = await supabase
+                .from('habits')
+                .select('sort_order')
+                .eq('user_id', userId)
+                .order('sort_order', { ascending: false })
+                .limit(1)
+
+            const newSortOrder = (maxHabit?.[0]?.sort_order ?? -1) + 1
 
             const habitId = crypto.randomUUID()
             const fullHabitData = {
@@ -134,21 +134,12 @@ export default function HabitFormModal({
                 frequency_days: null
             }
 
-            // Local Insert
-            await db.habits.add({
-                ...fullHabitData,
-                is_dirty: 1,
-                last_synced_at: null
-            })
-
             const { error } = await supabase.from('habits').insert(fullHabitData)
 
             if (!error) {
-                await db.habits.update(habitId, { is_dirty: 0, last_synced_at: new Date().toISOString() })
                 onSaved()
             } else {
                 console.error('Remote habit creation failed:', error)
-                onSaved()
             }
         }
 

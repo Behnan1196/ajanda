@@ -186,10 +186,10 @@ export async function updateProjectTask(projectId: string, taskId: string, updat
     const supabase = await createClient()
 
     // Dependency Validation: If updating dates, check predecessors
-    if (updates.start_date || updates.end_date) {
+    if (updates.start_date || updates.due_date) {
         const { data: currentTask } = await supabase
             .from('tasks')
-            .select('dependency_ids, start_date, end_date')
+            .select('id, dependency_ids, start_date, due_date')
             .eq('id', taskId)
             .single()
 
@@ -197,15 +197,46 @@ export async function updateProjectTask(projectId: string, taskId: string, updat
         if (depIds && depIds.length > 0) {
             const { data: predecessors } = await supabase
                 .from('tasks')
-                .select('title, end_date')
+                .select('title, due_date')
                 .in('id', depIds)
 
-            const newStart = updates.start_date ? new Date(updates.start_date) : (currentTask?.start_date ? new Date(currentTask.start_date) : null)
+            const newStart = updates.start_date ? new Date(updates.start_date) : (currentTask?.due_date ? new Date(currentTask.due_date) : null)
 
             if (newStart && predecessors) {
                 for (const pred of predecessors) {
-                    if (pred.end_date && new Date(pred.end_date) > newStart) {
+                    if (pred.due_date && new Date(pred.due_date) > newStart) {
                         return { error: `Bağımlılık Hatası: "${pred.title}" bitmeden bu görev başlayamaz.` }
+                    }
+                }
+            }
+        }
+
+        // Recursive Date Update: If this is a parent and date changed, move children
+        const newDate = updates.start_date || updates.due_date
+        const oldDate = currentTask?.start_date || currentTask?.due_date
+
+        if (newDate && oldDate && newDate !== oldDate) {
+            const diffDays = Math.round((new Date(newDate).getTime() - new Date(oldDate).getTime()) / (1000 * 60 * 60 * 24))
+
+            if (diffDays !== 0) {
+                const { data: subtasks } = await supabase
+                    .from('tasks')
+                    .select('id, start_date, due_date')
+                    .eq('parent_id', taskId)
+
+                if (subtasks && subtasks.length > 0) {
+                    for (const sub of subtasks) {
+                        const subOldDate = sub.start_date || sub.due_date
+                        if (subOldDate) {
+                            const subNewDate = new Date(subOldDate)
+                            subNewDate.setDate(subNewDate.getDate() + diffDays)
+                            const subNewDateStr = subNewDate.toISOString().split('T')[0]
+
+                            await updateProjectTask(projectId, sub.id, {
+                                start_date: subNewDateStr,
+                                due_date: subNewDateStr
+                            })
+                        }
                     }
                 }
             }
@@ -728,6 +759,17 @@ export async function syncProjectTasks(projectId: string, tasks: any[]) {
 
         // 4. Sync tasks
         const idMap: { [key: string]: string } = {}
+
+        // Sort tasks to ensure parents are processed before children (if parent is also being created)
+        // This is a simple heuristic: if B refers to A as parent, A should come first.
+        tasks.sort((a, b) => {
+            // If b's parent is a, a must be processed first (return -1)
+            if (b.parent_id === a.id) return -1
+            // If a's parent is b, b must be processed first (return 1)
+            if (a.parent_id === b.id) return 1
+            // Secondary sort by sort_order
+            return (a.sort_order || 0) - (b.sort_order || 0)
+        })
 
         for (const task of tasks) {
             const isNew = String(task.id).startsWith('temp-')

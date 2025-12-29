@@ -125,7 +125,7 @@ export default function WeeklyTaskCard({
                     <div
                         {...attributes}
                         {...listeners}
-                        className={`cursor-grab active:cursor-grabbing p-1 -m-1 rounded hover:bg-gray-50 transition-colors ${task.task_types?.slug === 'video' ? 'text-red-600' : 'text-indigo-600'}`}
+                        className={`cursor-grab active:cursor-grabbing p-2 -m-1.5 rounded-lg hover:bg-gray-50 transition-colors ${task.task_types?.slug === 'video' ? 'text-red-600' : 'text-indigo-600'}`}
                         title="Sıralamak için sürükleyin"
                     >
                         {getTaskIcon()}

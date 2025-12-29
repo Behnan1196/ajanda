@@ -2,12 +2,14 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { updateProjectTask } from '@/app/actions/projects'
 import WeeklyTaskCard from './WeeklyTaskCard'
 import TaskFormModal from './TaskFormModal'
 import QuickTodoModal from './QuickTodoModal'
 import TaskStyleModal from './TaskStyleModal'
-import { db } from '@/lib/db'
-import { useLiveQuery } from 'dexie-react-hooks'
+import CompactDailyNutrition from './CompactDailyNutrition'
+import CompactDailyPractice from './CompactDailyPractice'
+import DraggableSpecializedSummary from './DraggableSpecializedSummary'
 import {
     DndContext,
     closestCorners,
@@ -58,6 +60,28 @@ interface WeeklyViewProps {
     initialDate?: Date | null
 }
 
+interface Task {
+    id: string
+    title: string
+    description: string | null
+    task_type_id: string
+    project_id?: string
+    metadata: any
+    due_date: string | null
+    due_time: string | null
+    is_completed: boolean
+    is_private: boolean
+    task_types: {
+        name: string
+        slug: string
+        icon: string | null
+    }
+    relationship?: {
+        role_label: string
+    } | null
+    sort_order?: number
+}
+
 export default function WeeklyView({
     userId,
     onDateSelect = () => { },
@@ -67,6 +91,7 @@ export default function WeeklyView({
 }: WeeklyViewProps) {
     const [currentWeekStart, setCurrentWeekStart] = useState(getStartOfWeek(initialDate || new Date()))
     const [weekTasks, setWeekTasks] = useState<Map<string, Task[]>>(new Map())
+    const [specializedTasks, setSpecializedTasks] = useState<Map<string, Task[]>>(new Map())
     const [loading, setLoading] = useState(true)
 
     const toLocalISOString = (date: Date) => {
@@ -75,51 +100,6 @@ export default function WeeklyView({
         return localDate.toISOString().split('T')[0]
     }
 
-    // Local-first logic: Use IndexedDB if viewing own tasks
-    const startStr = toLocalISOString(currentWeekStart)
-    const end = new Date(currentWeekStart)
-    end.setDate(end.getDate() + 6)
-    const endStr = toLocalISOString(end)
-
-    const localTasks = useLiveQuery(
-        () => isTutorMode ? [] : db.tasks.where('user_id').equals(userId).and(t => t.due_date! >= startStr && t.due_date! <= endStr).toArray(),
-        [userId, startStr, endStr, isTutorMode]
-    )
-
-    useEffect(() => {
-        const enrichTasks = async () => {
-            if (localTasks) {
-                const tasksMap = new Map<string, Task[]>()
-
-                // Pre-fill map with current week days
-                const days = getDaysInWeek()
-                days.forEach(d => tasksMap.set(toLocalISOString(d), []))
-
-                const enriched = await Promise.all(localTasks.map(async (t) => {
-                    const type = t.task_type_id ? await db.task_types.get(t.task_type_id) : null
-                    return {
-                        ...t,
-                        task_types: type || { name: 'Görev', slug: 'todo', icon: '📝' }
-                    }
-                }))
-
-                enriched.forEach((task: any) => {
-                    if (task.due_date) {
-                        const current = tasksMap.get(task.due_date) || []
-                        current.push(task)
-                        tasksMap.set(task.due_date, current)
-                    }
-                })
-                // Sort tasks within each day by sort_order
-                tasksMap.forEach((tasks, date) => {
-                    tasks.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
-                })
-                setWeekTasks(tasksMap)
-                setLoading(false)
-            }
-        }
-        enrichTasks()
-    }, [localTasks])
     const [showTaskModal, setShowTaskModal] = useState(false)
     const [showQuickTodoModal, setShowQuickTodoModal] = useState(false)
     const [selectedDate, setSelectedDate] = useState<Date>(new Date())
@@ -132,7 +112,7 @@ export default function WeeklyView({
     const sensors = useSensors(
         useSensor(PointerSensor, {
             activationConstraint: {
-                distance: 8,
+                distance: 5,
             },
         }),
         useSensor(TouchSensor, {
@@ -183,46 +163,58 @@ export default function WeeklyView({
     }, [initialDate])
 
     const loadWeekTasks = async (silent = false) => {
-        if (isTutorMode && userId !== undefined) {
-            if (!silent) setLoading(true)
+        if (userId === undefined) return
+        if (!silent) setLoading(true)
 
-            const start = new Date(currentWeekStart)
-            const end = new Date(start)
-            end.setDate(end.getDate() + 6)
-            end.setHours(23, 59, 59, 999)
+        const start = new Date(currentWeekStart)
+        const end = new Date(start)
+        end.setDate(end.getDate() + 6)
+        end.setHours(23, 59, 59, 999)
 
-            const startStr = toLocalISOString(start)
-            const endStr = toLocalISOString(end)
+        const startStr = toLocalISOString(start)
+        const endStr = toLocalISOString(end)
 
-            const { data, error } = await supabase
-                .from('tasks')
-                .select(`
-            *,
-            task_types (name, slug, icon),
-            relationship:relationship_id (role_label)
-          `)
-                .eq('user_id', userId)
-                .gte('due_date', startStr)
-                .lte('due_date', endStr)
-                .order('sort_order', { ascending: true })
+        const { data, error } = await supabase
+            .from('tasks')
+            .select(`
+                *,
+                task_types!inner (name, slug, icon),
+                relationship:relationship_id (role_label)
+            `)
+            .eq('user_id', userId)
+            .gte('due_date', startStr)
+            .lte('due_date', endStr)
+            .order('sort_order', { ascending: true })
 
-            if (!error && data) {
-                const tasksMap = new Map<string, Task[]>()
-                // Pre-fill map with current week days
-                const days = getDaysInWeek()
-                days.forEach(d => tasksMap.set(toLocalISOString(d), []))
+        if (!error && data) {
+            const tasksMap = new Map<string, Task[]>()
+            const specMap = new Map<string, Task[]>()
+            const days = getDaysInWeek()
 
-                data.forEach((task: any) => {
-                    if (task.due_date) {
+            days.forEach(d => {
+                const ds = toLocalISOString(d)
+                tasksMap.set(ds, [])
+                specMap.set(ds, [])
+            })
+
+            data.forEach((task: any) => {
+                if (task.due_date) {
+                    const slug = task.task_types?.slug
+                    if (slug === 'nutrition' || slug === 'music') {
+                        const current = specMap.get(task.due_date) || []
+                        current.push(task)
+                        specMap.set(task.due_date, current)
+                    } else {
                         const current = tasksMap.get(task.due_date) || []
                         current.push(task)
                         tasksMap.set(task.due_date, current)
                     }
-                })
-                setWeekTasks(tasksMap)
-            }
-            if (!silent) setLoading(false)
+                }
+            })
+            setWeekTasks(tasksMap)
+            setSpecializedTasks(specMap)
         }
+        if (!silent) setLoading(false)
     }
 
     const getDaysInWeek = () => {
@@ -238,14 +230,6 @@ export default function WeeklyView({
 
     const isToday = (date: Date) => {
         return date.toDateString() === new Date().toDateString()
-    }
-
-    const getTaskIcon = (icon: string | null) => {
-        if (!icon) return null
-        if (icon === 'check-square') return '📝'
-        if (icon === 'play-circle') return '🎥'
-        if (icon === 'users') return '👥'
-        return icon
     }
 
     const navigateWeek = (direction: 'prev' | 'next') => {
@@ -272,15 +256,16 @@ export default function WeeklyView({
     const handleTaskDelete = async (taskId: string) => {
         if (!confirm('Görevi silmek istediğinize emin misiniz?')) return
 
-        // Local Update
-        await db.tasks.delete(taskId)
-
         const { error } = await supabase
             .from('tasks')
             .delete()
             .eq('id', taskId)
 
-        if (error) console.error('Remote delete failed:', error)
+        if (error) {
+            console.error('Remote delete failed:', error)
+        } else {
+            loadWeekTasks(true)
+        }
     }
 
     const handleTaskSaved = () => {
@@ -291,37 +276,26 @@ export default function WeeklyView({
     }
 
     const handleTaskComplete = async (taskId: string) => {
-        const updateData = {
-            is_completed: true,
-            completed_at: new Date().toISOString(),
-            is_dirty: 1
-        }
-
-        await db.tasks.update(taskId, updateData)
-
+        const completedAt = new Date().toISOString()
         const { error } = await supabase
             .from('tasks')
-            .update({ is_completed: true, completed_at: updateData.completed_at })
+            .update({ is_completed: true, completed_at: completedAt })
             .eq('id', taskId)
 
-        if (!error) await db.tasks.update(taskId, { is_dirty: 0 })
+        if (!error) {
+            loadWeekTasks(true)
+        }
     }
 
     const handleTaskUncomplete = async (taskId: string) => {
-        const updateData = {
-            is_completed: false,
-            completed_at: null,
-            is_dirty: 1
-        }
-
-        await db.tasks.update(taskId, updateData)
-
         const { error } = await supabase
             .from('tasks')
             .update({ is_completed: false, completed_at: null })
             .eq('id', taskId)
 
-        if (!error) await db.tasks.update(taskId, { is_dirty: 0 })
+        if (!error) {
+            loadWeekTasks(true)
+        }
     }
 
     const handleTaskStyleSave = async (style: { color: string; border: string }) => {
@@ -333,24 +307,14 @@ export default function WeeklyView({
             style: style
         }
 
-        const updateData = {
-            metadata: updatedMetadata,
-            is_dirty: 1
-        }
-
-        // 1. Update LOCAL
-        await db.tasks.update(task.id, updateData)
-
-        // 2. Update REMOTE
         const { error } = await supabase
             .from('tasks')
             .update({ metadata: updatedMetadata })
             .eq('id', task.id)
 
-        if (!error) await db.tasks.update(task.id, { is_dirty: 0 })
-
-        // Refresh UI
-        loadWeekTasks(true)
+        if (!error) {
+            loadWeekTasks(true)
+        }
     }
 
     // Flatten all tasks for finding active task during drag
@@ -359,6 +323,22 @@ export default function WeeklyView({
 
     const findContainer = (id: string) => {
         if (weekTasks.has(id)) return id
+
+        // Handle specialized groups
+        if (id.startsWith('group-')) {
+            // ID format: group-type-YYYY-MM-DD
+            // But verify: group-nutrition-2023-11-20
+            // Since type is variable length, we should use regex or fixed structure if possible.
+            // ID construction: `group-${type}-${dateStr}`
+            // Let's assume dateStr is always at the end (10 chars).
+            // Actually, simply returning the date part is safer if we encoded it well.
+            const parts = id.split('-')
+            // Reconstruct date from last 3 parts: YYYY-MM-DD
+            if (parts.length >= 5) {
+                return `${parts[parts.length - 3]}-${parts[parts.length - 2]}-${parts[parts.length - 1]}`
+            }
+        }
+
         const task = dataFlatten.find(t => t.id === id)
         if (task) return task.due_date
         // Fallback for date strings that aren't in map yet but are valid format YYYY-MM-DD
@@ -425,75 +405,76 @@ export default function WeeklyView({
 
         if (!activeContainer || !overContainer) return
 
+        // Handle dragging a specialized group
+        if (activeId.startsWith('group-')) {
+            const parts = activeId.split('-')
+            const groupType = parts[1] // e.g., 'nutrition', 'music'
+            const oldDate = activeContainer // The date from which the group was dragged
+
+            if (oldDate !== overContainer) {
+                // Get all tasks of this type for the old date
+                const tasksToMove = specializedTasks.get(oldDate)?.filter(t => t.task_types?.slug === groupType) || []
+
+                // Update due_date for all tasks in the group
+                for (const task of tasksToMove) {
+                    await supabase
+                        .from('tasks')
+                        .update({ due_date: overContainer })
+                        .eq('id', task.id)
+                }
+                loadWeekTasks(true) // Reload all tasks to reflect changes
+            }
+            return // Exit early as specialized group drag is handled
+        }
+
         // If moved to a different container or reordered within same
         if (activeContainer !== overContainer || activeId !== overId) {
             const items = [...(weekTasks.get(overContainer) || [])]
             const oldIndex = items.findIndex(t => t.id === activeId)
             const newIndex = items.findIndex(t => t.id === overId)
 
-            // Calculate final state from current UI
+            // Calculate final state
             const finalItems = activeId !== overId && activeContainer === overContainer
                 ? arrayMove(items, oldIndex, newIndex)
                 : items
 
-            // 1. Update LOCAL DB (Dexie) if not in tutor mode
-            if (!isTutorMode) {
-                for (let i = 0; i < finalItems.length; i++) {
-                    const task = finalItems[i]
-                    await db.tasks.update(task.id, {
-                        sort_order: i,
-                        due_date: overContainer,
-                        is_dirty: 1
-                    })
-                }
-
-                // Also update origin container if it was a move
-                if (activeContainer !== overContainer) {
-                    const originItems = [...(weekTasks.get(activeContainer) || [])]
-                    for (let i = 0; i < originItems.length; i++) {
-                        await db.tasks.update(originItems[i].id, { sort_order: i, is_dirty: 1 })
-                    }
-                }
-            }
-
             // 2. Update REMOTE DB (Supabase)
             for (let i = 0; i < finalItems.length; i++) {
                 const task = finalItems[i]
-                const { error } = await supabase
-                    .from('tasks')
-                    .update({
+
+                // If this is the moved task AND container changed, use server action to handle recursion
+                if (task.id === activeId && activeContainer !== overContainer && task.project_id) {
+                    await updateProjectTask(task.project_id, task.id, {
                         sort_order: i,
                         due_date: overContainer
                     })
-                    .eq('id', task.id)
-
-                if (!error && !isTutorMode) {
-                    await db.tasks.update(task.id, { is_dirty: 0 })
+                } else {
+                    // Regular update for sorting or non-project tasks
+                    await supabase
+                        .from('tasks')
+                        .update({
+                            sort_order: i,
+                            due_date: overContainer
+                        })
+                        .eq('id', task.id)
                 }
             }
 
             if (activeContainer !== overContainer) {
                 const originItems = [...(weekTasks.get(activeContainer) || [])]
                 for (let i = 0; i < originItems.length; i++) {
-                    const { error } = await supabase
+                    await supabase
                         .from('tasks')
                         .update({ sort_order: i })
                         .eq('id', originItems[i].id)
-
-                    if (!error && !isTutorMode) {
-                        await db.tasks.update(originItems[i].id, { is_dirty: 0 })
-                    }
                 }
             }
 
-            // Refresh UI if in tutor mode (as we don't have reactive local storage for it)
-            if (isTutorMode) {
-                loadWeekTasks(true)
-            }
+            loadWeekTasks(true)
         }
     }
 
-    const weekDays = getDaysInWeek()
+    const weekDaysArr = getDaysInWeek()
     const monthName = currentWeekStart.toLocaleDateString('tr-TR', { month: 'long', year: 'numeric' })
 
     if (loading) {
@@ -537,12 +518,12 @@ export default function WeeklyView({
                 onDragEnd={handleDragEnd}
             >
                 <div className="grid grid-cols-1 md:grid-cols-7 gap-4">
-                    {weekDays.map((date) => {
+                    {weekDaysArr.map((date) => {
                         const dateStr = toLocalISOString(date)
                         const tasksForDay = weekTasks.get(dateStr) || []
+                        const specTasksForDay = specializedTasks.get(dateStr) || []
                         const isDayToday = isToday(date)
                         const dayName = date.toLocaleDateString('tr-TR', { weekday: 'long' })
-                        const dayShort = date.toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' })
 
                         return (
                             <DroppableDay key={dateStr} id={dateStr} isToday={isDayToday}>
@@ -569,6 +550,26 @@ export default function WeeklyView({
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                                             </svg>
                                         </button>
+                                    </div>
+
+                                    {/* Specialized Summaries */}
+                                    <div className="space-y-1 mb-2">
+                                        {specTasksForDay.filter(t => t.task_types?.slug === 'nutrition').length > 0 && (
+                                            <DraggableSpecializedSummary
+                                                id={`group-nutrition-${dateStr}`}
+                                                type="nutrition"
+                                            >
+                                                <CompactDailyNutrition tasks={specTasksForDay.filter(t => t.task_types?.slug === 'nutrition')} />
+                                            </DraggableSpecializedSummary>
+                                        )}
+                                        {specTasksForDay.filter(t => t.task_types?.slug === 'music').length > 0 && (
+                                            <DraggableSpecializedSummary
+                                                id={`group-music-${dateStr}`}
+                                                type="music"
+                                            >
+                                                <CompactDailyPractice tasks={specTasksForDay.filter(t => t.task_types?.slug === 'music')} />
+                                            </DraggableSpecializedSummary>
+                                        )}
                                     </div>
 
                                     {/* Tasks List */}
@@ -599,9 +600,6 @@ export default function WeeklyView({
                                             </div>
                                         </SortableContext>
                                     </div>
-
-                                    {/* Add Buttons removed/moved to header */}
-
                                 </div>
                             </DroppableDay>
                         )
@@ -611,14 +609,38 @@ export default function WeeklyView({
                 <DragOverlay>
                     {activeId ? (
                         <div className="w-[280px]">
-                            <WeeklyTaskCard
-                                task={dataFlatten.find(t => t.id === activeId)}
-                                onEdit={() => { }}
-                                onDelete={() => { }}
-                                onComplete={() => { }}
-                                onUncomplete={() => { }}
-                                isOverlay
-                            />
+                            {activeId.startsWith('group-') ? (
+                                (() => {
+                                    // Parse activeId to get type and tasks
+                                    // activeId: group-type-YYYY-MM-DD
+                                    // Wait, we need the tasks.
+                                    // The date is in the ID.
+                                    const parts = activeId.split('-')
+                                    const type = parts[1] // nutrition / music
+                                    // Date is the rest: parts[2]-parts[3]-parts[4]
+                                    const dateStr = `${parts[2]}-${parts[3]}-${parts[4]}`
+
+                                    const tasks = specializedTasks.get(dateStr)?.filter(t => t.task_types?.slug === type) || []
+                                    const Wrapper = type === 'nutrition' ? CompactDailyNutrition : CompactDailyPractice
+
+                                    return (
+                                        <div className="bg-white rounded-xl shadow-2xl opacity-90 rotate-2 border-2 border-indigo-400 cursor-grabbing">
+                                            <Wrapper tasks={tasks} />
+                                        </div>
+                                    )
+                                })()
+                            ) : (
+                                dataFlatten.find(t => t.id === activeId) && (
+                                    <WeeklyTaskCard
+                                        task={dataFlatten.find(t => t.id === activeId)}
+                                        onEdit={() => { }}
+                                        onDelete={() => { }}
+                                        onComplete={() => { }}
+                                        onUncomplete={() => { }}
+                                        isOverlay
+                                    />
+                                )
+                            )}
                         </div>
                     ) : null}
                 </DragOverlay>

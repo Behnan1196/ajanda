@@ -2,8 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { db } from '@/lib/db'
-import { useLiveQuery } from 'dexie-react-hooks'
 import {
     DndContext,
     closestCenter,
@@ -38,7 +36,7 @@ interface CompactHabitGridProps {
 }
 
 export default function CompactHabitGrid({ userId, onEdit }: CompactHabitGridProps) {
-    const [habits, setHabits] = useState<Habit[]>([])
+    const [habits, setHabits] = useState<any[]>([])
     const [completions, setCompletions] = useState<Map<string, Set<string>>>(new Map())
     const [weekStart, setWeekStart] = useState<Date>(getMonday(new Date()))
     const [loading, setLoading] = useState(true)
@@ -65,40 +63,43 @@ export default function CompactHabitGrid({ userId, onEdit }: CompactHabitGridPro
 
     const dayNames = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz']
 
-    const habitsQuery = useLiveQuery(
-        () => db.habits.where('user_id').equals(userId).toArray(),
-        [userId]
-    )
+    const loadData = async () => {
+        setLoading(true)
+        const startStr = weekDates[0].toISOString().split('T')[0]
+        const endStr = weekDates[6].toISOString().split('T')[0]
 
-    const completionsQuery = useLiveQuery(
-        () => db.habit_completions.where('user_id').equals(userId).toArray(),
-        [userId]
-    )
+        // Load Habits
+        const { data: habitsData } = await supabase
+            .from('habits')
+            .select('*')
+            .eq('user_id', userId)
+            .eq('is_active', true)
+            .order('sort_order', { ascending: true })
 
-    useEffect(() => {
-        if (habitsQuery) {
-            const activeHabits = habitsQuery
-                .filter(h => h.is_active !== false)
-                .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
-            setHabits(activeHabits)
-            setLoading(false)
-        }
-    }, [habitsQuery])
+        if (habitsData) setHabits(habitsData)
 
-    useEffect(() => {
-        if (completionsQuery) {
+        // Load Completions for the week
+        const { data: compData } = await supabase
+            .from('habit_completions')
+            .select('*')
+            .eq('user_id', userId)
+            .gte('completed_date', startStr)
+            .lte('completed_date', endStr)
+
+        if (compData) {
             const compMap = new Map<string, Set<string>>()
-            completionsQuery.forEach(c => {
+            compData.forEach(c => {
                 if (!compMap.has(c.habit_id)) compMap.set(c.habit_id, new Set())
                 compMap.get(c.habit_id)!.add(c.completed_date)
             })
             setCompletions(compMap)
         }
-    }, [completionsQuery])
-
-    const loadData = async () => {
-        // Data is handled by useLiveQuery reactive hooks
+        setLoading(false)
     }
+
+    useEffect(() => {
+        loadData()
+    }, [userId, weekStart])
 
     const isCompleted = (habitId: string, date: Date) => {
         return completions.get(habitId)?.has(date.toISOString().split('T')[0]) || false
@@ -111,44 +112,33 @@ export default function CompactHabitGrid({ userId, onEdit }: CompactHabitGridPro
         const completed = isCompleted(habitId, date)
 
         if (completed) {
-            // Find the local completion entry to delete
-            const comp = await db.habit_completions.get({ habit_id: habitId, completed_date: dateStr })
-            if (comp) {
-                await db.habit_completions.delete(comp.id)
-                const { error } = await supabase.from('habit_completions').delete().eq('id', comp.id)
-                // If error, it's fine, sync will handle it (actually delete is tricky with sync, 
-                // but for now local-first means it's gone from UI immediately)
-            }
+            const { error } = await supabase
+                .from('habit_completions')
+                .delete()
+                .eq('habit_id', habitId)
+                .eq('completed_date', dateStr)
+                .eq('user_id', userId)
+
+            if (!error) loadData()
         } else {
-            const newComp = {
-                id: crypto.randomUUID(),
-                habit_id: habitId,
-                user_id: userId,
-                completed_at: new Date().toISOString(),
-                completed_date: dateStr,
-                count: 1,
-                duration: null,
-                notes: null,
-                is_dirty: 1,
-                last_synced_at: null
-            }
-            await db.habit_completions.add(newComp)
-            const { error } = await supabase.from('habit_completions').insert({
-                id: newComp.id,
-                habit_id: newComp.habit_id,
-                user_id: newComp.user_id,
-                completed_date: newComp.completed_date,
-                count: 1
-            })
-            if (!error) await db.habit_completions.update(newComp.id, { is_dirty: 0 })
+            const { error } = await supabase
+                .from('habit_completions')
+                .insert({
+                    id: crypto.randomUUID(),
+                    habit_id: habitId,
+                    user_id: userId,
+                    completed_date: dateStr,
+                    count: 1
+                })
+
+            if (!error) loadData()
         }
     }
 
     const handleDelete = async (habitId: string) => {
         if (!confirm('Bu alışkanlığı silmek istediğinize emin misiniz?')) return
-        await db.habits.update(habitId, { is_active: false, is_dirty: 1 })
         const { error } = await supabase.from('habits').update({ is_active: false }).eq('id', habitId)
-        if (!error) await db.habits.update(habitId, { is_dirty: 0 })
+        if (!error) loadData()
     }
 
     const handleDragStart = (event: DragStartEvent) => {
@@ -164,12 +154,11 @@ export default function CompactHabitGrid({ userId, onEdit }: CompactHabitGridPro
         const newHabits = arrayMove(habits, oldIndex, newIndex)
         setHabits(newHabits)
 
-        // Bulk local update
+        // Bulk update
         for (let i = 0; i < newHabits.length; i++) {
-            await db.habits.update(newHabits[i].id, { sort_order: i, is_dirty: 1 })
-            const { error } = await supabase.from('habits').update({ sort_order: i }).eq('id', newHabits[i].id)
-            if (!error) await db.habits.update(newHabits[i].id, { is_dirty: 0 })
+            await supabase.from('habits').update({ sort_order: i }).eq('id', newHabits[i].id)
         }
+        loadData()
     }
 
     if (loading) return <div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div></div>

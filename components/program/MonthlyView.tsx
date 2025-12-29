@@ -47,10 +47,11 @@ export default function MonthlyView({ userId, onDateSelect }: MonthlyViewProps) 
         // Ayın tüm görevlerini çek
         const { data, error } = await supabase
             .from('tasks')
-            .select('due_date, is_completed')
+            .select('due_date, is_completed, task_types!inner(slug)')
             .eq('user_id', userId)
             .gte('due_date', firstDateStr)
             .lte('due_date', lastDateStr)
+            .filter('task_types.slug', 'not.in', '("nutrition","music")')
 
         if (error) {
             console.error('Error loading month data:', error)

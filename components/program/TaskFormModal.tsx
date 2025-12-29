@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { db } from '@/lib/db'
 
 interface TaskType {
     id: string
@@ -137,10 +136,6 @@ export default function TaskFormModal({ userId, editingTask, defaultDate, onClos
 
         if (isEditMode && editingTask) {
             // UPDATE mode
-            if (isOwnTask) {
-                await db.tasks.update(editingTask.id, { ...payload, is_dirty: 1 })
-            }
-
             const { error } = await supabase
                 .from('tasks')
                 .update(payload)
@@ -148,9 +143,8 @@ export default function TaskFormModal({ userId, editingTask, defaultDate, onClos
 
             if (error) {
                 console.error('Error updating task:', error)
-                if (!isOwnTask) alert('Görev güncellenirken hata oluştu')
+                alert('Görev güncellenirken hata oluştu')
             } else {
-                if (isOwnTask) await db.tasks.update(editingTask.id, { is_dirty: 0 })
                 onTaskSaved()
             }
         } else {
@@ -162,24 +156,17 @@ export default function TaskFormModal({ userId, editingTask, defaultDate, onClos
                 return
             }
 
-            // Get max sort_order
-            let newSortOrder = 0
-            if (isOwnTask) {
-                const maxLocal = await db.tasks.where({ user_id: userId, due_date: payload.due_date }).reverse().sortBy('sort_order')
-                newSortOrder = (maxLocal[0]?.sort_order ?? -1) + 1
-            } else {
-                const { data: maxOrderData } = await supabase
-                    .from('tasks')
-                    .select('sort_order')
-                    .eq('user_id', userId)
-                    .eq('due_date', payload.due_date)
-                    .order('sort_order', { ascending: false })
-                    .limit(1)
-                    .single()
-                newSortOrder = (maxOrderData?.sort_order ?? -1) + 1
-            }
+            // Get max sort_order from Supabase
+            const { data: maxOrderData } = await supabase
+                .from('tasks')
+                .select('sort_order')
+                .eq('user_id', userId)
+                .eq('due_date', payload.due_date)
+                .order('sort_order', { ascending: false })
+                .limit(1)
 
-            const taskId = isOwnTask ? crypto.randomUUID() : null
+            const newSortOrder = (maxOrderData?.[0]?.sort_order ?? -1) + 1
+
             const taskData = {
                 ...payload,
                 user_id: userId,
@@ -189,29 +176,12 @@ export default function TaskFormModal({ userId, editingTask, defaultDate, onClos
                 sort_order: newSortOrder
             }
 
-            if (isOwnTask && taskId) {
-                await db.tasks.add({
-                    ...taskData,
-                    id: taskId,
-                    is_completed: false,
-                    completed_at: null,
-                    project_id: null,
-                    is_dirty: 1,
-                    last_synced_at: null
-                })
-            }
-
-            const { error } = await supabase.from('tasks').insert(
-                isOwnTask ? { ...taskData, id: taskId } : taskData
-            ).select().single()
+            const { error } = await supabase.from('tasks').insert(taskData)
 
             if (error) {
                 console.error('Error creating task:', error)
-                if (!isOwnTask) alert('Görev oluşturulurken hata oluştu')
+                alert('Görev oluşturulurken hata oluştu')
             } else {
-                if (isOwnTask && taskId) {
-                    await db.tasks.update(taskId, { is_dirty: 0, last_synced_at: new Date().toISOString() })
-                }
                 onTaskSaved()
             }
         }

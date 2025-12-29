@@ -8,8 +8,6 @@ import TaskFormModal from './TaskFormModal'
 import QuickTodoModal from './QuickTodoModal'
 import DailyNutritionCard from './DailyNutritionCard'
 import DailyPracticeCard from './DailyPracticeCard'
-import { db } from '@/lib/db'
-import { useLiveQuery } from 'dexie-react-hooks'
 import {
     DndContext,
     closestCenter,
@@ -67,30 +65,30 @@ export default function TodayView({ userId, initialDate, isTutorMode = false }: 
         return localDate.toISOString().split('T')[0]
     }
 
-    // Local-first logic: Use IndexedDB if viewing own tasks
-    const dateString = toLocalISOString(selectedDate)
-    const localTasks = useLiveQuery(
-        () => isTutorMode ? [] : db.tasks.where({ user_id: userId, due_date: dateString }).sortBy('sort_order'),
-        [userId, dateString, isTutorMode]
-    )
+    const loadTasks = async (date: Date) => {
+        setLoading(true)
+        const dateString = toLocalISOString(date)
 
-    // Sync tasks state with either localTasks or remote fetch
-    useEffect(() => {
-        const enrichTasks = async () => {
-            if (localTasks) {
-                const enriched = await Promise.all(localTasks.map(async (t) => {
-                    const type = t.task_type_id ? await db.task_types.get(t.task_type_id) : null
-                    return {
-                        ...t,
-                        task_types: type || { name: 'Görev', slug: 'todo', icon: '📝' }
-                    }
-                }))
-                setTasks(enriched as Task[])
-                setLoading(false)
-            }
+        const { data, error } = await supabase
+            .from('tasks')
+            .select(`
+                *,
+                task_types!inner (name, slug, icon)
+            `)
+            .eq('user_id', userId)
+            .eq('due_date', dateString)
+            .filter('task_types.slug', 'not.in', '("nutrition","music")')
+            .order('sort_order', { ascending: true })
+
+        if (!error && data) {
+            setTasks(data as Task[])
         }
-        enrichTasks()
-    }, [localTasks])
+        setLoading(false)
+    }
+
+    useEffect(() => {
+        loadTasks(selectedDate)
+    }, [userId, selectedDate])
 
     // Drag & Drop sensors
     const sensors = useSensors(
@@ -128,84 +126,43 @@ export default function TodayView({ userId, initialDate, isTutorMode = false }: 
         }
     }
 
-    const loadTasks = async (date: Date) => {
-        // If we have local tasks, we don't necessarily need to fetch from Supabase here
-        // as the sync engine handles that. But for student views (coach mode), we still need it.
-        if (isTutorMode && userId !== undefined) {
-            setLoading(true)
-            const dateString = toLocalISOString(date)
-
-            const { data, error } = await supabase
-                .from('tasks')
-                .select(`
-            *,
-            task_types (name, slug, icon)
-          `)
-                .eq('user_id', userId)
-                .eq('due_date', dateString)
-                .order('sort_order', { ascending: true })
-
-            if (!error && data) {
-                setTasks(data as Task[])
-            }
-            setLoading(false)
-        }
-    }
-
-    useEffect(() => {
-        loadTasks(selectedDate)
-    }, [userId, selectedDate])
-
     const handleTaskComplete = async (taskId: string) => {
-        const updateData = {
-            is_completed: true,
-            completed_at: new Date().toISOString(),
-            is_dirty: 1
-        }
+        const completedAt = new Date().toISOString()
 
-        // Local Update
-        await db.tasks.update(taskId, updateData)
+        // Optimistic UI update (if state management were more complex, we'd update `tasks` state here)
+        // For now, we rely on loadTasks being called or re-render
 
-        // Optimistic Remote Update
         const { error } = await supabase
             .from('tasks')
-            .update({ is_completed: true, completed_at: updateData.completed_at })
+            .update({ is_completed: true, completed_at: completedAt })
             .eq('id', taskId)
 
         if (!error) {
-            await db.tasks.update(taskId, { is_dirty: 0 })
+            loadTasks(selectedDate)
         }
     }
 
     const handleTaskUncomplete = async (taskId: string) => {
-        const updateData = {
-            is_completed: false,
-            completed_at: null,
-            is_dirty: 1
-        }
-
-        await db.tasks.update(taskId, updateData)
-
         const { error } = await supabase
             .from('tasks')
             .update({ is_completed: false, completed_at: null })
             .eq('id', taskId)
 
         if (!error) {
-            await db.tasks.update(taskId, { is_dirty: 0 })
+            loadTasks(selectedDate)
         }
     }
 
     const handleTaskDelete = async (taskId: string) => {
-        await db.tasks.delete(taskId)
-
         const { error } = await supabase
             .from('tasks')
             .delete()
             .eq('id', taskId)
 
-        if (error) {
-            console.error('Remote delete failed, but local is gone:', error)
+        if (!error) {
+            loadTasks(selectedDate)
+        } else {
+            console.error('Remote delete failed:', error)
         }
     }
 

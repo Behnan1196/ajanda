@@ -17,11 +17,11 @@ interface TaskCardProps {
         }
         due_time: string | null
         is_completed: boolean
-        task_types: {
+        task_types?: {
             name: string
             slug: string
             icon: string | null
-        }
+        } | null
         subjects?: {
             name: string
             icon: string | null
@@ -64,6 +64,7 @@ export default function TaskCard({
     const videoUrl = metadata.video_url || findYouTubeUrl(description) || findYouTubeUrl(metadata.notes)
 
     const getIcon = () => {
+        if (!task_types) return null
         switch (task_types.slug) {
             case 'video':
                 return (
@@ -114,7 +115,7 @@ export default function TaskCard({
                     <div
                         {...dragAttributes}
                         {...dragListeners}
-                        className={`cursor-grab active:cursor-grabbing p-1 -m-1 rounded hover:bg-gray-50 transition-colors ${task_types.slug === 'video' ? 'text-red-600' : 'text-indigo-600'}`}
+                        className={`cursor-grab active:cursor-grabbing p-1 -m-1 rounded hover:bg-gray-50 transition-colors ${task?.task_types?.slug === 'video' ? 'text-red-600' : 'text-indigo-600'}`}
                         title="Sıralamak için sürükleyin"
                     >
                         {getIcon()}
@@ -122,10 +123,9 @@ export default function TaskCard({
                 </div>
 
                 <div className="flex-1 min-w-0">
-
                     <div className="flex items-center gap-2 mb-1">
                         <span className="text-xs font-medium text-gray-500 uppercase">
-                            {task_types.name}
+                            {task?.task_types?.name || 'Genel'}
                         </span>
                         {due_time && (
                             <span className="text-xs text-gray-400">
@@ -174,29 +174,34 @@ export default function TaskCard({
                     )}
                 </div>
 
-                <div className="flex flex-col items-center gap-2 shrink-0">
-                    <TaskMenu
-                        taskId={task.id}
-                        isCompleted={is_completed}
-                        onEdit={onEdit}
-                        onDelete={onDelete}
-                        onUncomplete={onUncomplete}
-                        onStyle={onStyle}
-                    />
-                    <button
-                        onClick={is_completed ? onUncomplete : onComplete}
-                        className={`w-6 h-6 rounded-full border flex items-center justify-center transition-colors ${is_completed
-                            ? 'bg-green-500 border-green-500 text-white'
-                            : 'border-gray-300 hover:border-gray-400'
-                            }`}
-                    >
-                        {is_completed && (
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                            </svg>
-                        )}
-                    </button>
-                </div>
+                {/* YouTube Preview */}
+                {videoUrl && (
+                    <YouTubePreview url={videoUrl} />
+                )}
+            </div>
+
+            <div className="flex flex-col items-center gap-2 shrink-0">
+                <TaskMenu
+                    taskId={task.id}
+                    isCompleted={is_completed}
+                    onEdit={onEdit}
+                    onDelete={onDelete}
+                    onUncomplete={onUncomplete}
+                    onStyle={onStyle}
+                />
+                <button
+                    onClick={is_completed ? onUncomplete : onComplete}
+                    className={`w-6 h-6 rounded-full border flex items-center justify-center transition-colors ${is_completed
+                        ? 'bg-green-500 border-green-500 text-white'
+                        : 'border-gray-300 hover:border-gray-400'
+                        }`}
+                >
+                    {is_completed && (
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                        </svg>
+                    )}
+                </button>
             </div>
         </div>
     )
