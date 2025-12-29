@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { generatePersonaAnalysis, AIAnalysisResult } from '@/app/actions/ai'
-import { createBulkTasks, CreateTaskInput } from '@/app/actions/tasks'
+import { createBulkTasks, BulkTaskInput } from '@/app/actions/tasks'
 
 // Helper to get date for next occurrence of a day
 function getNextDate(dayName: string): Date {
@@ -61,7 +61,7 @@ export default function AIPersonaAnalysis({ personaId }: AIPersonaAnalysisProps)
         setError(null)
 
         try {
-            const tasksToCreate: CreateTaskInput[] = []
+            const tasksToCreate: BulkTaskInput[] = []
 
             result.weekly_schedule.forEach(day => {
                 const date = getNextDate(day.day)
@@ -81,8 +81,8 @@ export default function AIPersonaAnalysis({ personaId }: AIPersonaAnalysisProps)
             })
 
             const response = await createBulkTasks(tasksToCreate)
-            if (response.error) {
-                setError(response.error)
+            if (!response.success) {
+                setError('Görevler oluşturulurken bir hata oluştu')
             } else {
                 setSuccessMsg('Haftalık program başarıyla uygulandı! Personanın takvimine eklendi.')
                 setResult(null) // Clear result to show freshness

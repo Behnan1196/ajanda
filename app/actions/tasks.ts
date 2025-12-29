@@ -225,8 +225,7 @@ export async function deleteTask(taskId: string) {
     return { success: true }
 }
 
-// Legacy function for backwards compatibility
-export async function createBulkTasks(tasks: Array<{
+export interface BulkTaskInput {
     user_id: string
     title: string
     description?: string
@@ -234,7 +233,10 @@ export async function createBulkTasks(tasks: Array<{
     task_type: 'todo' | 'watch' | 'test'
     is_completed: boolean
     relationship_id?: string
-}>) {
+}
+
+// Legacy function for backwards compatibility
+export async function createBulkTasks(tasks: BulkTaskInput[]) {
     const results = []
     for (const task of tasks) {
         const result = await createTask({
