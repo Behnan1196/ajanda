@@ -28,6 +28,18 @@ export function useOfflineSync(userId: string | undefined) {
             .eq('user_id', userId)
 
         if (!error && remoteTasks) {
+            // Keep track of remote IDs
+            const remoteIds = new Set(remoteTasks.map(t => t.id))
+
+            // 1. Delete local tasks that don't exist in Supabase (and aren't dirty)
+            const allLocalTasks = await db.tasks.where('user_id').equals(userId).toArray()
+            for (const local of allLocalTasks) {
+                if (!remoteIds.has(local.id) && local.is_dirty === 0) {
+                    await db.tasks.delete(local.id)
+                }
+            }
+
+            // 2. Update or put remote tasks
             for (const remote of remoteTasks) {
                 const local = await db.tasks.get(remote.id)
                 if (!local || local.is_dirty === 0) {
@@ -64,6 +76,14 @@ export function useOfflineSync(userId: string | undefined) {
             .eq('user_id', userId)
 
         if (!hError && remoteHabits) {
+            const remoteIds = new Set(remoteHabits.map(h => h.id))
+            const allLocal = await db.habits.where('user_id').equals(userId).toArray()
+            for (const local of allLocal) {
+                if (!remoteIds.has(local.id) && local.is_dirty === 0) {
+                    await db.habits.delete(local.id)
+                }
+            }
+
             for (const remote of remoteHabits) {
                 const local = await db.habits.get(remote.id)
                 if (!local || local.is_dirty === 0) {
@@ -95,6 +115,15 @@ export function useOfflineSync(userId: string | undefined) {
             .eq('user_id', userId)
 
         if (!cError && remoteComps) {
+            const remoteIds = new Set(remoteComps.map(c => c.id))
+            // Habit completions are linked to habits, so we just clear ones that are not remote
+            const allLocal = await db.habit_completions.toArray() // Careful: habit_completions might not have user_id, check schema
+            for (const local of allLocal) {
+                if (!remoteIds.has(local.id) && local.is_dirty === 0) {
+                    await db.habit_completions.delete(local.id)
+                }
+            }
+
             for (const remote of remoteComps) {
                 const local = await db.habit_completions.get(remote.id)
                 if (!local || local.is_dirty === 0) {

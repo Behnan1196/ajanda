@@ -7,6 +7,7 @@ import AddTaskButton from './AddTaskButton'
 import TaskFormModal from './TaskFormModal'
 import QuickTodoModal from './QuickTodoModal'
 import DailyNutritionCard from './DailyNutritionCard'
+import DailyPracticeCard from './DailyPracticeCard'
 import { db } from '@/lib/db'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
@@ -37,8 +38,6 @@ interface Task {
     due_date: string | null
     due_time: string | null
     is_completed: boolean
-    subject_id: string | null
-    topic_id: string | null
     task_types: {
         name: string
         slug: string
@@ -71,8 +70,8 @@ export default function TodayView({ userId, initialDate, isTutorMode = false }: 
     // Local-first logic: Use IndexedDB if viewing own tasks
     const dateString = toLocalISOString(selectedDate)
     const localTasks = useLiveQuery(
-        () => db.tasks.where({ user_id: userId, due_date: dateString }).sortBy('sort_order'),
-        [userId, dateString]
+        () => isTutorMode ? [] : db.tasks.where({ user_id: userId, due_date: dateString }).sortBy('sort_order'),
+        [userId, dateString, isTutorMode]
     )
 
     // Sync tasks state with either localTasks or remote fetch
@@ -81,11 +80,9 @@ export default function TodayView({ userId, initialDate, isTutorMode = false }: 
             if (localTasks) {
                 const enriched = await Promise.all(localTasks.map(async (t) => {
                     const type = t.task_type_id ? await db.task_types.get(t.task_type_id) : null
-                    const subject = t.subject_id ? await db.subjects.get(t.subject_id) : null
                     return {
                         ...t,
-                        task_types: type || { name: 'Görev', slug: 'todo', icon: '📝' },
-                        subjects: subject || null
+                        task_types: type || { name: 'Görev', slug: 'todo', icon: '📝' }
                     }
                 }))
                 setTasks(enriched as Task[])
@@ -142,12 +139,9 @@ export default function TodayView({ userId, initialDate, isTutorMode = false }: 
                 .from('tasks')
                 .select(`
             *,
-            task_types (name, slug, icon),
-            subjects (name, icon, color),
-            topics (name)
+            task_types (name, slug, icon)
           `)
                 .eq('user_id', userId)
-                .is('project_id', null)
                 .eq('due_date', dateString)
                 .order('sort_order', { ascending: true })
 
@@ -342,8 +336,9 @@ export default function TodayView({ userId, initialDate, isTutorMode = false }: 
                 )}
             </div>
 
-            {/* Daily Nutrition Summary (Modular) */}
+            {/* Modular Summaries */}
             <DailyNutritionCard userId={userId} date={selectedDate} />
+            <DailyPracticeCard userId={userId} date={selectedDate} />
 
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                 <SortableContext items={tasks.map(t => t.id)} strategy={verticalListSortingStrategy}>

@@ -122,22 +122,6 @@ export default function TaskCard({
                 </div>
 
                 <div className="flex-1 min-w-0">
-                    {/* Subject/Topic Badge */}
-                    {task.subjects && (
-                        <div className="flex items-center gap-2 mb-2">
-                            <span
-                                className="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded"
-                                style={{ backgroundColor: `${task.subjects.color}15`, color: task.subjects.color }}
-                            >
-                                {task.subjects.icon} {task.subjects.name}
-                            </span>
-                            {task.topics && (
-                                <span className="text-xs text-gray-500">
-                                    › {task.topics.name}
-                                </span>
-                            )}
-                        </div>
-                    )}
 
                     <div className="flex items-center gap-2 mb-1">
                         <span className="text-xs font-medium text-gray-500 uppercase">

@@ -49,7 +49,6 @@ export default function MonthlyView({ userId, onDateSelect }: MonthlyViewProps) 
             .from('tasks')
             .select('due_date, is_completed')
             .eq('user_id', userId)
-            .is('project_id', null)
             .gte('due_date', firstDateStr)
             .lte('due_date', lastDateStr)
 

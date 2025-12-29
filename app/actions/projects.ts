@@ -21,22 +21,7 @@ export async function getProjects(userId?: string, filter: 'all' | 'personal' | 
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return { error: 'Oturum açılmamış' }
 
-    // Eğer userId belirtilmişse o kullanıcının projelerini getir (Koç modu), 
-    // aksi takdirde kendi projelerimi getir.
-    // ÖNEMLİ: Gelen userId bir persona id'si olabilir, projects tablosu ise user_id (UUID) kullanıyor.
-    let targetUserId = userId || user.id
-    if (userId) {
-        const { data: persona } = await supabase
-            .from('personas')
-            .select('user_id')
-            .eq('id', userId)
-            .single()
-
-        if (persona) {
-            targetUserId = persona.user_id
-        }
-    }
-
+    const targetUserId = userId || user.id
 
     let query = supabase
         .from('projects')
@@ -44,17 +29,21 @@ export async function getProjects(userId?: string, filter: 'all' | 'personal' | 
         .eq('user_id', targetUserId)
 
     if (filter === 'personal') {
-        // settings->is_coach_project null veya false olanlar
-        // JSONB içinde boolean veya string olarak saklanmış olabilir
-        query = query.or('settings->is_coach_project.is.null,settings->is_coach_project.eq.false,settings->>is_coach_project.eq.false')
+        // Öğrencinin kendi oluşturduğu projeler (is_coach_project false veya null)
+        // Ayrıca is_official olanları asla kişisel projelerde gösterme
+        query = query.eq('is_official', false)
+            .or('is_coach_project.is.null,is_coach_project.eq.false')
     } else if (filter === 'coach') {
-        // settings->is_coach_project true olanlar
-        query = query.or('settings->is_coach_project.eq.true,settings->>is_coach_project.eq.true')
+        // Koç tarafından atanan veya program türündeki projeler
+        query = query.eq('is_coach_project', true)
     }
 
     const { data, error } = await query.order('created_at', { ascending: false })
 
-    if (error) return { error: error.message }
+    if (error) {
+        return { error: error.message }
+    }
+
     return { data: data as Project[] }
 }
 
@@ -410,8 +399,7 @@ export async function getTemplates(moduleType?: string) {
     let query = supabase
         .from('projects')
         .select('*')
-        .eq('is_template', true)
-        .eq('user_id', user.id)
+        .or(`is_official.eq.true,and(is_template.eq.true,user_id.eq.${user.id})`)
         .order('created_at', { ascending: false })
 
     const { data, error } = await query
@@ -420,7 +408,11 @@ export async function getTemplates(moduleType?: string) {
 
     // Filter by module_type if specified
     if (moduleType && data) {
-        const filtered = data.filter((p: any) => p.settings?.module_type === moduleType)
+        const filtered = data.filter((p: any) =>
+            p.module === moduleType ||
+            p.settings?.module === moduleType ||
+            p.settings?.module_type === moduleType
+        )
         return { data: filtered }
     }
 
@@ -455,39 +447,28 @@ export async function createProjectFromTemplate(
             return { error: 'Şablon bulunamadı' }
         }
 
-        // 2. Determine target user (Persona ID or Direct User ID)
-        let targetUserId = user.id
-        if (studentId) {
-            const { data: persona } = await supabase
-                .from('personas')
-                .select('user_id')
-                .eq('id', studentId)
-                .single()
-
-            if (persona) {
-                targetUserId = persona.user_id
-            } else {
-                // If not found in personas, assume it's a direct User ID
-                targetUserId = studentId
-            }
-        }
+        // 2. Determine target user (already a UUID from getAssignedPersonas)
+        const targetUserId = studentId || user.id
 
         // 3. Create new project
         // If creating for another user, use admin client to bypass RLS
         const supabaseClient = targetUserId === user.id ? supabase : createAdminClient()
 
+        const isCoachProject = true // Always true for programs created from templates via tutor panels
+
         const { data: newProject, error: projectError } = await supabaseClient
             .from('projects')
             .insert({
-                user_id: targetUserId, // Fix: Use student's ID as the owner
+                user_id: targetUserId,
                 name: template.name,
                 description: template.description,
                 status: 'active',
                 start_date: startDate,
+                is_coach_project: isCoachProject,
                 settings: {
                     duration_days: template.duration_days,
                     is_template: false,
-                    is_coach_project: targetUserId !== user.id, // Only flag if assigned to someone else
+                    is_coach_project: isCoachProject,
                     created_by: user.id,
                     template_id: templateId,
                     student_id: studentId

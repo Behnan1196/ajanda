@@ -137,22 +137,6 @@ export default function WeeklyTaskCard({
                     onClick={onEdit}
                     className="flex-1 min-w-0 cursor-pointer"
                 >
-                    {/* Subject/Topic Badge */}
-                    {task.subjects && (
-                        <div className="flex items-center gap-2 mb-1">
-                            <span
-                                className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded"
-                                style={{ backgroundColor: `${task.subjects.color}15`, color: task.subjects.color }}
-                            >
-                                {task.subjects.icon} {task.subjects.name}
-                            </span>
-                            {task.topics && (
-                                <span className="text-[10px] text-gray-400">
-                                    › {task.topics.name}
-                                </span>
-                            )}
-                        </div>
-                    )}
 
                     <h4 className={`font-medium text-sm leading-tight ${task.is_completed ? 'line-through text-gray-400' : 'text-gray-900'}`}>
                         {task.title}

@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import ProgramList from '@/components/program/ProgramList'
 import CreateProgramModal from '@/components/program/CreateProgramModal'
-import { examTemplates } from '@/lib/templates/exam'
+import { getTemplatesByModule } from '@/lib/templates'
 import { createProgramFromSimpleTemplate } from '@/app/actions/templates'
 import { getTemplates, createProjectFromTemplate } from '@/app/actions/projects'
 
@@ -25,12 +25,15 @@ export default function ExamCoachingManager({ selectedPersonaId }: ExamCoachingM
     const loadAllTemplates = async () => {
         setLoading(true)
 
+        // Get code templates from unified system
+        const examCodeTemplates = getTemplatesByModule('exam')
+
         // Get database templates
         const { data: dbTemplates } = await getTemplates('exam')
 
         // Merge code templates with database templates
         const merged = [
-            ...examTemplates,
+            ...examCodeTemplates,
             ...(dbTemplates || []).map((t: any) => ({
                 id: t.id,
                 name: t.name,

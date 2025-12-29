@@ -39,21 +39,11 @@ interface Task {
     due_time: string | null
     is_completed: boolean
     is_private: boolean
-    subject_id: string | null
-    topic_id: string | null
     task_types: {
         name: string
         slug: string
         icon: string | null
     }
-    subjects?: {
-        name: string
-        icon: string | null
-        color: string
-    } | null
-    topics?: {
-        name: string
-    } | null
     relationship?: {
         role_label: string
     } | null
@@ -65,10 +55,17 @@ interface WeeklyViewProps {
     onDateSelect?: (date: Date) => void
     relationshipId?: string // Context
     isTutorMode?: boolean
+    initialDate?: Date | null
 }
 
-export default function WeeklyView({ userId, onDateSelect = () => { }, relationshipId, isTutorMode = false }: WeeklyViewProps) {
-    const [currentWeekStart, setCurrentWeekStart] = useState(getStartOfWeek(new Date()))
+export default function WeeklyView({
+    userId,
+    onDateSelect = () => { },
+    relationshipId,
+    isTutorMode = false,
+    initialDate
+}: WeeklyViewProps) {
+    const [currentWeekStart, setCurrentWeekStart] = useState(getStartOfWeek(initialDate || new Date()))
     const [weekTasks, setWeekTasks] = useState<Map<string, Task[]>>(new Map())
     const [loading, setLoading] = useState(true)
 
@@ -85,8 +82,8 @@ export default function WeeklyView({ userId, onDateSelect = () => { }, relations
     const endStr = toLocalISOString(end)
 
     const localTasks = useLiveQuery(
-        () => db.tasks.where('user_id').equals(userId).and(t => t.due_date! >= startStr && t.due_date! <= endStr).toArray(),
-        [userId, startStr, endStr]
+        () => isTutorMode ? [] : db.tasks.where('user_id').equals(userId).and(t => t.due_date! >= startStr && t.due_date! <= endStr).toArray(),
+        [userId, startStr, endStr, isTutorMode]
     )
 
     useEffect(() => {
@@ -100,11 +97,9 @@ export default function WeeklyView({ userId, onDateSelect = () => { }, relations
 
                 const enriched = await Promise.all(localTasks.map(async (t) => {
                     const type = t.task_type_id ? await db.task_types.get(t.task_type_id) : null
-                    const subject = t.subject_id ? await db.subjects.get(t.subject_id) : null
                     return {
                         ...t,
-                        task_types: type || { name: 'Görev', slug: 'todo', icon: '📝' },
-                        subjects: subject || null
+                        task_types: type || { name: 'Görev', slug: 'todo', icon: '📝' }
                     }
                 }))
 
@@ -181,6 +176,12 @@ export default function WeeklyView({ userId, onDateSelect = () => { }, relations
         loadWeekTasks()
     }, [userId, currentWeekStart])
 
+    useEffect(() => {
+        if (initialDate) {
+            setCurrentWeekStart(getStartOfWeek(initialDate))
+        }
+    }, [initialDate])
+
     const loadWeekTasks = async (silent = false) => {
         if (isTutorMode && userId !== undefined) {
             if (!silent) setLoading(true)
@@ -198,12 +199,9 @@ export default function WeeklyView({ userId, onDateSelect = () => { }, relations
                 .select(`
             *,
             task_types (name, slug, icon),
-            subjects (name, icon, color),
-            topics (name),
             relationship:relationship_id (role_label)
           `)
                 .eq('user_id', userId)
-                .is('project_id', null)
                 .gte('due_date', startStr)
                 .lte('due_date', endStr)
                 .order('sort_order', { ascending: true })

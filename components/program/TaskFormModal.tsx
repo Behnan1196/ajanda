@@ -19,26 +19,11 @@ interface TaskType {
     }
 }
 
-interface Subject {
-    id: string
-    name: string
-    icon: string | null
-    color: string
-}
-
-interface Topic {
-    id: string
-    subject_id: string
-    name: string
-}
-
 interface Task {
     id: string
     title: string
     description: string | null
     task_type_id: string
-    subject_id: string | null
-    topic_id: string | null
     metadata: Record<string, unknown>
     due_date: string | null
     due_time: string | null
@@ -56,8 +41,6 @@ interface TaskFormModalProps {
 
 export default function TaskFormModal({ userId, editingTask, defaultDate, onClose, onTaskSaved, relationshipId }: TaskFormModalProps) {
     const [taskTypes, setTaskTypes] = useState<TaskType[]>([])
-    const [subjects, setSubjects] = useState<Subject[]>([])
-    const [topics, setTopics] = useState<Topic[]>([])
 
     // User Context
     const [currentUserRole, setCurrentUserRole] = useState<'student' | 'coach' | 'admin'>('student')
@@ -72,21 +55,15 @@ export default function TaskFormModal({ userId, editingTask, defaultDate, onClos
     }
 
     const [selectedType, setSelectedType] = useState<string>('')
-    const [subjectId, setSubjectId] = useState<string>('')
-    const [topicId, setTopicId] = useState<string>('')
     const [title, setTitle] = useState('')
     const [description, setDescription] = useState('')
     const [dueDate, setDueDate] = useState(
         defaultDate ? toLocalISOString(defaultDate) : toLocalISOString(new Date())
     )
     const [dueTime, setDueTime] = useState('')
-    const [reminderTime, setReminderTime] = useState('')
     const [isPrivate, setIsPrivate] = useState(false)
     const [metadata, setMetadata] = useState<Record<string, unknown>>({})
     const [loading, setLoading] = useState(false)
-
-    // UI State
-    // const [showAdvanced, setShowAdvanced] = useState(false) // Removed advanced toggle
 
     const supabase = createClient()
     const isEditMode = !!editingTask
@@ -100,13 +77,10 @@ export default function TaskFormModal({ userId, editingTask, defaultDate, onClos
             setTitle(editingTask.title)
             setDescription(editingTask.description || '')
             setSelectedType(editingTask.task_type_id)
-            setSubjectId(editingTask.subject_id || '')
-            setTopicId(editingTask.topic_id || '')
             setDueDate(editingTask.due_date || toLocalISOString(new Date()))
             setDueTime(editingTask.due_time || '')
             setIsPrivate(editingTask.is_private || false)
             setMetadata(editingTask.metadata || {})
-            // setShowAdvanced(!!editingTask.subject_id) // No longer needed
         }
     }, [editingTask])
 
@@ -136,56 +110,23 @@ export default function TaskFormModal({ userId, editingTask, defaultDate, onClos
             .select('*')
             .eq('is_active', true)
 
-        // 3. Load subjects
-        const { data: subjectsData } = await supabase
-            .from('subjects')
-            .select('id, name, icon, color')
-            .eq('is_active', true)
-            .order('name')
-
-        // 4. Load topics
-        const { data: topicsData } = await supabase
-            .from('topics')
-            .select('id, subject_id, name')
-            .eq('is_active', true)
-            .order('order_index')
-
         if (taskTypesData) {
             setTaskTypes(taskTypesData as TaskType[])
             if (taskTypesData.length > 0 && !editingTask) {
-                // Default to 'todo' if exists, else first one
                 const todoType = taskTypesData.find(t => t.slug === 'todo')
                 setSelectedType(todoType ? todoType.id : taskTypesData[0].id)
             }
         }
-
-        if (subjectsData) setSubjects(subjectsData)
-        if (topicsData) setTopics(topicsData)
     }
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         setLoading(true)
 
-        // Auto-generate title if empty
-        let finalTitle = title
-        if (!finalTitle) {
-            if (subjectId) {
-                const subject = subjects.find(s => s.id === subjectId)
-                finalTitle = subject ? `${subject.name} Çalışması` : 'Ders Çalışması'
-                if (topicId) {
-                    const topic = topics.find(t => t.id === topicId)
-                    if (topic) finalTitle = `${topic.name}` // Just topic name is cleaner
-                }
-            } else {
-                finalTitle = 'Yeni Görev'
-            }
-        }
+        const finalTitle = title || 'Yeni Görev'
 
         const payload = {
             task_type_id: selectedType,
-            subject_id: subjectId || null,
-            topic_id: topicId || null,
             title: finalTitle,
             description,
             metadata,
@@ -215,7 +156,6 @@ export default function TaskFormModal({ userId, editingTask, defaultDate, onClos
         } else {
             // CREATE mode
             const { data: { user: currentUser } } = await supabase.auth.getUser()
-
             if (!currentUser) {
                 alert('Oturum hatası')
                 setLoading(false)
@@ -233,7 +173,6 @@ export default function TaskFormModal({ userId, editingTask, defaultDate, onClos
                     .select('sort_order')
                     .eq('user_id', userId)
                     .eq('due_date', payload.due_date)
-                    .is('project_id', null)
                     .order('sort_order', { ascending: false })
                     .limit(1)
                     .single()
@@ -262,7 +201,7 @@ export default function TaskFormModal({ userId, editingTask, defaultDate, onClos
                 })
             }
 
-            const { data: remoteData, error } = await supabase.from('tasks').insert(
+            const { error } = await supabase.from('tasks').insert(
                 isOwnTask ? { ...taskData, id: taskId } : taskData
             ).select().single()
 
@@ -281,9 +220,6 @@ export default function TaskFormModal({ userId, editingTask, defaultDate, onClos
     }
 
     const currentTaskType = taskTypes.find((t) => t.id === selectedType)
-    const filteredTopics = topics.filter(t => t.subject_id === subjectId)
-
-    // Determine View Mode
     const isStudentView = currentUserRole === 'student' || isOwnTask
 
     return (
@@ -293,10 +229,7 @@ export default function TaskFormModal({ userId, editingTask, defaultDate, onClos
                     <h2 className="text-xl font-bold text-gray-900">
                         {isEditMode ? 'Görevi Düzenle' : (isStudentView ? 'Yeni Görev' : 'Görev Ata')}
                     </h2>
-                    <button
-                        onClick={onClose}
-                        className="text-gray-400 hover:text-gray-600 transition"
-                    >
+                    <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition">
                         <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                         </svg>
@@ -304,54 +237,18 @@ export default function TaskFormModal({ userId, editingTask, defaultDate, onClos
                 </div>
 
                 <form onSubmit={handleSubmit} className="space-y-4">
-
-                    {/* 1. Subject & Topic Selection (Moved to Top, Always Visible) */}
-                    <div className="space-y-4">
-                        {/* Subject Selection */}
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Ders / Konu
-                            </label>
-                            <select
-                                value={subjectId}
-                                onChange={(e) => {
-                                    setSubjectId(e.target.value)
-                                    setTopicId('')
-                                }}
-                                className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                            >
-                                <option value="">Genel / Derssiz</option>
-                                {subjects.map((subject) => (
-                                    <option key={subject.id} value={subject.id}>
-                                        {subject.name}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
-
-                        {/* Topic Selection */}
-                        {subjectId && (
-                            <div className="animate-fadeIn">
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Alt Konu
-                                </label>
-                                <select
-                                    value={topicId}
-                                    onChange={(e) => setTopicId(e.target.value)}
-                                    className="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                                >
-                                    <option value="">Seçiniz...</option>
-                                    {filteredTopics.map((topic) => (
-                                        <option key={topic.id} value={topic.id}>
-                                            {topic.name}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-                        )}
+                    {/* Header: Title */}
+                    <div>
+                        <input
+                            type="text"
+                            value={title}
+                            onChange={(e) => setTitle(e.target.value)}
+                            placeholder="Görev Başlığı"
+                            className="w-full text-xl font-bold border-0 border-b border-transparent focus:border-indigo-500 focus:ring-0 px-0 py-2"
+                        />
                     </div>
 
-                    {/* 2. Date & Time */}
+                    {/* Date & Time */}
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="block text-xs font-medium text-gray-500 mb-1">TARİH</label>
@@ -373,13 +270,10 @@ export default function TaskFormModal({ userId, editingTask, defaultDate, onClos
                         </div>
                     </div>
 
-                    {/* 3. Task Type & Description */}
+                    {/* Task Type & Description */}
                     <div className="space-y-4 pt-4 border-t border-gray-100">
-                        {/* Task Type Switcher */}
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Görev Tipi
-                            </label>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Görev Tipi</label>
                             <div className="flex gap-2 flex-wrap">
                                 {taskTypes.map((type) => (
                                     <button
@@ -397,11 +291,8 @@ export default function TaskFormModal({ userId, editingTask, defaultDate, onClos
                             </div>
                         </div>
 
-                        {/* Description */}
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                                Açıklama / Notlar
-                            </label>
+                            <label className="block text-sm font-medium text-gray-700 mb-2">Açıklama / Notlar</label>
                             <textarea
                                 value={description}
                                 onChange={(e) => setDescription(e.target.value)}
@@ -411,12 +302,9 @@ export default function TaskFormModal({ userId, editingTask, defaultDate, onClos
                             />
                         </div>
 
-                        {/* Dynamic Fields */}
                         {currentTaskType?.schema.fields.map((field) => (
                             <div key={field.name}>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    {field.label}
-                                </label>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">{field.label}</label>
                                 <input
                                     type={field.type === 'url' ? 'url' : field.type === 'number' ? 'number' : 'text'}
                                     value={(metadata[field.name] as string) || ''}
@@ -431,13 +319,8 @@ export default function TaskFormModal({ userId, editingTask, defaultDate, onClos
                         ))}
                     </div>
 
-                    {/* Submit Actions */}
                     <div className="flex gap-3 pt-4 border-t border-gray-100">
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            className="flex-1 px-6 py-3 text-gray-500 hover:text-gray-700 font-medium transition"
-                        >
+                        <button type="button" onClick={onClose} className="flex-1 px-6 py-3 text-gray-500 hover:text-gray-700 font-medium transition">
                             İptal
                         </button>
                         <button

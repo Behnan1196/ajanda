@@ -14,11 +14,6 @@ import AIPersonaAnalysis from './tutor/AIPersonaAnalysis'
 import { subscribeUserToPush } from '@/lib/notifications'
 import LifeHubView from './program/LifeHubView'
 import TutorToolsView from './tutor/TutorToolsView'
-import NutritionManager from './tutor/NutritionManager'
-import NutritionDiary from './program/NutritionDiary'
-import MusicManager from './tutor/MusicManager'
-import MusicDiary from './program/MusicDiary'
-import DailyPracticeCard from './program/DailyPracticeCard'
 import { useOfflineSync } from '@/hooks/useOfflineSync'
 import ProjectListView from './program/ProjectListView'
 import ProjectDetailsView from './program/ProjectDetailsView'
@@ -109,7 +104,11 @@ export default function DashboardTabs({ user, isTutorMode = false, initialPerson
 
     const handleDateSelect = (date: Date) => {
         setSelectedDate(date)
-        setActiveProgramTab('bugun')
+        if (isTutorMode) {
+            setActiveProgramTab('haftalik')
+        } else {
+            setActiveProgramTab('bugun')
+        }
     }
 
     return (
@@ -185,6 +184,17 @@ export default function DashboardTabs({ user, isTutorMode = false, initialPerson
                                             <span>{isTutorMode ? '📅' : '🎓'}</span> {isTutorMode ? 'Kendi Ajandam' : 'Tutor Paneli'}
                                         </button>
                                     )}
+                                    <button
+                                        onClick={async () => {
+                                            if (confirm('Sistemi sıfırlamak istediğinize emin misiniz? Bu işlem cihazınızdaki önbelleği temizleyecektir.')) {
+                                                const { resetDatabase } = await import('@/lib/db')
+                                                await resetDatabase()
+                                            }
+                                        }}
+                                        className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition flex items-center gap-2 border-t border-gray-50 mt-1"
+                                    >
+                                        <span>🔄</span> Verileri Sıfırla
+                                    </button>
                                     <button
                                         onClick={handleLogout}
                                         className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition flex items-center gap-2 border-t border-gray-50 mt-1"
@@ -318,13 +328,16 @@ export default function DashboardTabs({ user, isTutorMode = false, initialPerson
                                     {activeProgramTab === 'bugun' && (
                                         <div className="p-4 pt-0">
                                             <TodayView userId={targetUserId} initialDate={selectedDate} isTutorMode={isTutorMode} />
-                                            <div className="mt-4">
-                                                <DailyPracticeCard userId={targetUserId} date={selectedDate || new Date()} />
-                                            </div>
                                         </div>
                                     )}
                                     {activeProgramTab === 'haftalik' && (
-                                        <WeeklyView userId={targetUserId} onDateSelect={handleDateSelect} isTutorMode={isTutorMode} />
+                                        <WeeklyView
+                                            userId={targetUserId}
+                                            onDateSelect={handleDateSelect}
+                                            isTutorMode={isTutorMode}
+                                            initialDate={selectedDate}
+                                            relationshipId={selectedPersona?.relationship_id}
+                                        />
                                     )}
                                     {activeProgramTab === 'aylik' && (
                                         <MonthlyView userId={targetUserId} onDateSelect={handleDateSelect} />
@@ -375,11 +388,10 @@ export default function DashboardTabs({ user, isTutorMode = false, initialPerson
                                 >
                                     ← Araçlara Dön
                                 </button>
-                                {isTutorMode ? (
-                                    <NutritionManager userId={selectedPersona?.id || user.id} />
-                                ) : (
-                                    <NutritionDiary userId={user.id} />
-                                )}
+                                <div className="p-8 text-center bg-white rounded-2xl border-2 border-dashed border-gray-200">
+                                    <p className="text-gray-600 font-bold mb-2">🥗 Beslenme Günlüğü Güncelleniyor</p>
+                                    <p className="text-sm text-gray-400">Yeni birleşik mimariye geçiş nedeniyle bu bölüm geçici olarak devre dışıdır. Görevlerinizi "Program" sekmesinden takip edebilirsiniz.</p>
+                                </div>
                             </div>
                         )}
                         {activeTool === 'music' && (
@@ -390,11 +402,10 @@ export default function DashboardTabs({ user, isTutorMode = false, initialPerson
                                 >
                                     ← Araçlara Dön
                                 </button>
-                                {isTutorMode ? (
-                                    <MusicManager userId={selectedPersona?.id || user.id} />
-                                ) : (
-                                    <MusicDiary userId={user.id} />
-                                )}
+                                <div className="p-8 text-center bg-white rounded-2xl border-2 border-dashed border-gray-200">
+                                    <p className="text-gray-600 font-bold mb-2">🎸 Müzik Günlüğü Güncelleniyor</p>
+                                    <p className="text-sm text-gray-400">Yeni birleşik mimariye geçiş nedeniyle bu bölüm geçici olarak devre dışıdır. Görevlerinizi "Program" sekmesinden takip edebilirsiniz.</p>
+                                </div>
                             </div>
                         )}
                         {activeTool === 'projects' && (
@@ -414,7 +425,7 @@ export default function DashboardTabs({ user, isTutorMode = false, initialPerson
                                     <ProjectListView
                                         onProjectSelect={setSelectedProject}
                                         userId={selectedPersona?.id}
-                                        filter={isTutorMode ? 'all' : 'personal'}
+                                        filter="personal"
                                     />
                                 )}
                             </div>

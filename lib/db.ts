@@ -11,8 +11,6 @@ export interface LocalTask {
     due_time: string | null;
     is_completed: boolean;
     completed_at: string | null;
-    subject_id: string | null;
-    topic_id: string | null;
     project_id: string | null;
     is_private: boolean;
     sort_order: number;
@@ -29,24 +27,9 @@ export interface LocalTaskType {
     icon: string | null;
 }
 
-export interface LocalSubject {
-    id: string;
-    name: string;
-    icon: string | null;
-    color: string;
-}
-
-export interface LocalTopic {
-    id: string;
-    subject_id: string;
-    name: string;
-}
-
 export interface LocalHabit {
     id: string;
     user_id: string;
-    subject_id: string | null;
-    topic_id: string | null;
     name: string;
     description: string | null;
     frequency: string;
@@ -87,8 +70,6 @@ export class AppDatabase extends Dexie {
     habits!: Table<LocalHabit>;
     habit_completions!: Table<LocalHabitCompletion>;
     task_types!: Table<LocalTaskType>;
-    subjects!: Table<LocalSubject>;
-    topics!: Table<LocalTopic>;
 
     constructor() {
         super('AjandaLocalDB');
@@ -96,11 +77,21 @@ export class AppDatabase extends Dexie {
             tasks: 'id, user_id, due_date, is_dirty',
             habits: 'id, user_id, is_dirty',
             habit_completions: 'id, habit_id, user_id, completed_date, is_dirty',
-            task_types: 'id, slug',
-            subjects: 'id',
-            topics: 'id, subject_id'
+            task_types: 'id, slug'
         });
     }
 }
 
+
 export const db = new AppDatabase();
+
+export async function resetDatabase() {
+    try {
+        await db.delete();
+        window.location.reload();
+    } catch (error) {
+        console.error('Failed to reset database:', error);
+        // Fallback: just clear and reload if delete fails
+        window.location.reload();
+    }
+}
