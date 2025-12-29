@@ -2,101 +2,9 @@
 
 import { useState, useEffect, use } from 'react'
 import { useRouter } from 'next/navigation'
-import { getProjectById, updateProject, deleteProject, syncProjectTasks, getProjectTasks } from '@/app/actions/projects'
+import { getProjectById, updateProject, deleteProject } from '@/app/actions/projects'
+import TaskHierarchicalEditor from '@/components/program/TaskHierarchicalEditor'
 import TaskFormModal from '@/components/tutor/TaskFormModal'
-import { DndContext, closestCenter, DragEndEvent, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
-import { SortableContext, verticalListSortingStrategy, arrayMove, useSortable } from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
-
-interface Task {
-    id: string
-    title: string
-    description: string
-    day: number
-    duration: number
-    parent_id?: string
-}
-
-function SortableTask({
-    task,
-    onEdit,
-    onDelete,
-    onAddSubtask,
-    isSubtask = false
-}: {
-    task: Task,
-    onEdit: () => void,
-    onDelete: () => void,
-    onAddSubtask: () => void,
-    isSubtask?: boolean
-}) {
-    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-        id: task.id
-    })
-
-    const style = {
-        transform: CSS.Transform.toString(transform),
-        transition,
-        opacity: isDragging ? 0.5 : 1,
-        marginLeft: isSubtask ? '2rem' : '0'
-    }
-
-    return (
-        <div
-            ref={setNodeRef}
-            style={style}
-            className={`flex items-center gap-4 p-4 bg-white rounded-xl border-2 hover:border-purple-300 transition ${isSubtask ? 'border-gray-100 bg-gray-50/50' : 'border-gray-200'
-                }`}
-        >
-            <button
-                {...attributes}
-                {...listeners}
-                className="cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600"
-            >
-                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
-                </svg>
-            </button>
-
-            <div className="flex-1">
-                <div className="flex items-center gap-2">
-                    {isSubtask && <span className="text-gray-400">↳</span>}
-                    <div className="font-bold text-gray-900">{task.title}</div>
-                </div>
-                {task.description && (
-                    <p className="text-sm text-gray-600 mt-1">{task.description}</p>
-                )}
-                <div className="text-xs text-gray-500 mt-1">
-                    Gün {task.day} • {task.duration} dakika
-                </div>
-            </div>
-
-            <div className="flex items-center gap-1">
-                {!isSubtask && (
-                    <button
-                        onClick={onAddSubtask}
-                        title="Alt Görev Ekle"
-                        className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition"
-                    >
-                        ➕
-                    </button>
-                )}
-                <button
-                    onClick={onEdit}
-                    className="p-2 text-gray-600 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition"
-                >
-                    ✏️
-                </button>
-                <button
-                    onClick={onDelete}
-                    className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
-                >
-                    🗑️
-                </button>
-            </div>
-        </div>
-    )
-}
 
 export default function TemplateEditorPage({ params: paramsPromise }: { params: Promise<{ id: string }> }) {
     const params = use(paramsPromise)
@@ -109,18 +17,13 @@ export default function TemplateEditorPage({ params: paramsPromise }: { params: 
         moduleType: 'general',
         durationDays: 7
     })
-    const [tasks, setTasks] = useState<Task[]>([])
-    const [showTaskModal, setShowTaskModal] = useState(false)
-    const [editingTask, setEditingTask] = useState<Task | undefined>(undefined)
-    const [currentParentId, setCurrentParentId] = useState<string | undefined>(undefined)
 
-    const sensors = useSensors(
-        useSensor(PointerSensor, {
-            activationConstraint: {
-                distance: 8,
-            },
-        })
-    )
+    // We fetch tasks just to pass them initially, 
+    // but TaskHierarchicalEditor handles re-fetching via onUpdate triggering a parent refresh if needed,
+    // OR we can let TaskHierarchicalEditor manage its own data fetching if we change it.
+    // Current TaskHierarchicalEditor takes 'initialTasks'. 
+    // To support live updates, we can just fetch tasks here and pass them.
+    const [tasks, setTasks] = useState<any[]>([])
 
     useEffect(() => {
         loadTemplate()
@@ -144,78 +47,17 @@ export default function TemplateEditorPage({ params: paramsPromise }: { params: 
             durationDays: project.settings?.duration_days || 7
         })
 
+        // Fetch tasks for the editor
+        const { getProjectTasks } = await import('@/app/actions/projects')
         const tasksResult = await getProjectTasks(params.id)
         if (tasksResult.data) {
-            const mappedTasks = tasksResult.data.map((t: any) => ({
-                id: t.id,
-                title: t.title,
-                description: t.description || '',
-                day: (t.sort_order || 0) + 1,
-                duration: t.duration_minutes || 60,
-                parent_id: t.parent_id
-            }))
-
-            const sortedTasks: Task[] = []
-            const parents = mappedTasks.filter((t: any) => !t.parent_id)
-            parents.forEach((parent: any) => {
-                sortedTasks.push(parent)
-                const children = mappedTasks.filter((t: any) => t.parent_id === parent.id)
-                sortedTasks.push(...children)
-            })
-            setTasks(sortedTasks.length > 0 ? sortedTasks : mappedTasks)
+            setTasks(tasksResult.data)
         }
 
         setLoading(false)
     }
 
-    const handleDragEnd = (event: DragEndEvent) => {
-        const { active, over } = event
-        if (over && active.id !== over.id) {
-            const oldIndex = tasks.findIndex(t => t.id === active.id)
-            const newIndex = tasks.findIndex(t => t.id === over.id)
-            setTasks(arrayMove(tasks, oldIndex, newIndex))
-        }
-    }
-
-    const handleAddTask = (parentId?: string) => {
-        setCurrentParentId(parentId)
-        setEditingTask(undefined)
-        setShowTaskModal(true)
-    }
-
-    const handleEditTask = (task: Task) => {
-        setEditingTask(task)
-        setCurrentParentId(task.parent_id)
-        setShowTaskModal(true)
-    }
-
-    const handleSaveTask = (taskData: any) => {
-        const taskWithParent = { ...taskData, parent_id: currentParentId }
-
-        if (editingTask) {
-            setTasks(tasks.map(t => t.id === taskData.id ? taskWithParent : t))
-        } else {
-            if (currentParentId) {
-                const parentIndex = tasks.findIndex(t => t.id === currentParentId)
-                const newTasks = [...tasks]
-                newTasks.splice(parentIndex + 1, 0, taskWithParent)
-                setTasks(newTasks)
-            } else {
-                setTasks([...tasks, taskWithParent])
-            }
-        }
-        setShowTaskModal(false)
-        setEditingTask(undefined)
-        setCurrentParentId(undefined)
-    }
-
-    const handleDeleteTask = (taskId: string) => {
-        if (confirm('Bu görevi silmek istediğinize emin misiniz?')) {
-            setTasks(tasks.filter(t => t.id !== taskId && t.parent_id !== taskId))
-        }
-    }
-
-    const handleSave = async () => {
+    const handleSaveSettings = async () => {
         setSaving(true)
 
         const projectResult = await updateProject(params.id, {
@@ -227,21 +69,15 @@ export default function TemplateEditorPage({ params: paramsPromise }: { params: 
             }
         })
 
+        setSaving(false)
+
         if (projectResult.error) {
-            setSaving(false)
             alert('Proje bilgileri güncellenemedi: ' + projectResult.error)
             return
         }
 
-        const syncResult = await syncProjectTasks(params.id, tasks)
-        setSaving(false)
-
-        if (syncResult.error) {
-            alert('Görevler senkronize edilemedi: ' + syncResult.error)
-        } else {
-            alert('Şablon ve tüm görevler başarıyla güncellendi!')
-            router.refresh()
-        }
+        alert('Şablon ayarları güncellendi!')
+        router.refresh()
     }
 
     const handleDelete = async () => {
@@ -286,6 +122,7 @@ export default function TemplateEditorPage({ params: paramsPromise }: { params: 
                 </div>
 
                 <div className="bg-white rounded-2xl p-8 border border-gray-200">
+                    {/* Settings Section */}
                     <div className="grid grid-cols-2 gap-6 mb-8">
                         <div className="col-span-2">
                             <label className="block text-sm font-bold text-gray-900 mb-2">
@@ -341,78 +178,33 @@ export default function TemplateEditorPage({ params: paramsPromise }: { params: 
                         </div>
                     </div>
 
-                    <div className="h-[1px] bg-gray-200 my-8"></div>
-
-                    <div>
-                        <div className="flex items-center justify-between mb-6">
-                            <h3 className="text-xl font-bold text-gray-900">Görevler</h3>
-                            <button
-                                onClick={() => handleAddTask()}
-                                className="px-4 py-2 bg-purple-600 text-white rounded-xl font-bold hover:bg-purple-700 transition"
-                            >
-                                + Görev Ekle
-                            </button>
-                        </div>
-
-                        <DndContext
-                            sensors={sensors}
-                            collisionDetection={closestCenter}
-                            onDragEnd={handleDragEnd}
-                        >
-                            <SortableContext items={tasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
-                                <div className="space-y-3">
-                                    {tasks.map(task => (
-                                        <SortableTask
-                                            key={task.id}
-                                            task={task}
-                                            isSubtask={!!task.parent_id}
-                                            onEdit={() => handleEditTask(task)}
-                                            onDelete={() => handleDeleteTask(task.id)}
-                                            onAddSubtask={() => handleAddTask(task.id)}
-                                        />
-                                    ))}
-                                </div>
-                            </SortableContext>
-                        </DndContext>
-
-                        {tasks.length === 0 && (
-                            <div className="text-center py-12 text-gray-400 border-2 border-dashed border-gray-200 rounded-xl">
-                                <span className="text-4xl block mb-2">📋</span>
-                                <p>Henüz görev yok</p>
-                            </div>
-                        )}
-                    </div>
-
-                    <div className="flex gap-4 mt-8 pt-8 border-t border-gray-200">
+                    <div className="flex justify-end gap-3 mb-8">
                         <button
                             onClick={handleDelete}
-                            className="px-6 py-3 border-2 border-red-300 text-red-600 rounded-xl font-bold hover:bg-red-50 transition"
+                            className="px-6 py-2 border-2 border-red-200 text-red-500 rounded-xl font-bold hover:bg-red-50 transition text-sm"
                         >
-                            🗑️ Şablonu Sil
+                            Şablonu Sil
                         </button>
-                        <div className="flex-1"></div>
                         <button
-                            onClick={handleSave}
+                            onClick={handleSaveSettings}
                             disabled={saving || !templateData.name}
-                            className="px-8 py-3 bg-purple-600 text-white rounded-xl font-bold hover:bg-purple-700 disabled:opacity-50 transition"
+                            className="px-6 py-2 bg-gray-900 text-white rounded-xl font-bold hover:bg-black disabled:opacity-50 transition text-sm"
                         >
-                            {saving ? 'Kaydediliyor...' : '💾 Kaydet'}
+                            {saving ? 'Kaydediliyor...' : 'Ayarları Kaydet'}
                         </button>
                     </div>
-                </div>
 
-                {showTaskModal && (
-                    <TaskFormModal
-                        task={editingTask as any}
-                        durationDays={templateData.durationDays}
-                        onSave={handleSaveTask}
-                        onClose={() => {
-                            setShowTaskModal(false)
-                            setEditingTask(undefined)
-                            setCurrentParentId(undefined)
-                        }}
-                    />
-                )}
+                    <div className="h-[1px] bg-gray-200 my-8"></div>
+
+                    {/* Tasks Editor */}
+                    <div>
+                        <TaskHierarchicalEditor
+                            projectId={params.id}
+                            initialTasks={tasks}
+                            onUpdate={loadTemplate} // Refresh tasks on change
+                        />
+                    </div>
+                </div>
             </div>
         </div>
     )

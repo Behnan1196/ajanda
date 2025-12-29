@@ -708,8 +708,10 @@ export async function getProjectById(projectId: string) {
             return { error: 'Proje bulunamadı' }
         }
 
-        // Security check: only allow creator or admins
-        if (data.user_id !== user.id) {
+        // Security check: only allow creator, admins, or if it's a system template
+        const isSystemTemplate = data.user_id === '00000000-0000-0000-0000-000000000000'
+
+        if (data.user_id !== user.id && !isSystemTemplate) {
             // Check if user has tutor-student relationship or other access logic if needed
             // For now, let's just log and see
             console.warn('User', user.id, 'attempted to access project owned by', data.user_id)

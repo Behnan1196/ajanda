@@ -6,6 +6,8 @@ import GanttChart from './GanttChart'
 import TaskEditorModal from './TaskEditorModal'
 import { getTaskIcon } from '@/lib/utils/iconMapping'
 import TaskHierarchicalEditor from './TaskHierarchicalEditor'
+import ShoppingListEditor from './ShoppingListEditor'
+import MedicineTrackerEditor from './MedicineTrackerEditor'
 
 
 
@@ -214,6 +216,57 @@ export default function ProjectDetailsView({ project, onBack }: ProjectDetailsVi
                     tasks={flattenedTasks}
                     onUpdate={loadTasks}
                 />
+            )}
+
+            {project.settings?.type === 'shopping' && (
+                <div className="absolute inset-0 bg-gray-50 z-10 flex flex-col overflow-auto">
+                    <div className="p-4 border-b bg-white flex justify-between items-center sticky top-0 shadow-sm z-20">
+                        <button onClick={onBack} className="flex items-center gap-2 text-gray-500 font-bold hover:text-gray-700">
+                            ← Geri
+                        </button>
+                        <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg">AVM Modu</span>
+                    </div>
+                    <ShoppingListEditor
+                        project={project}
+                        tasks={tasks}
+                        onAddTask={async (title, metadata) => {
+                            const { createProjectTask } = await import('@/app/actions/projects')
+                            // We need to pass metadata, but createProjectTask signature in projects.ts doesn't support it yet as arg?
+                            // Actually we can just create it then update it or update createProjectTask.
+                            // OR better: createProjectTask returns data, we update immediately.
+                            const result = await createProjectTask(project.id, title)
+                            if (result.data) {
+                                const { updateProjectTask } = await import('@/app/actions/projects')
+                                if (metadata) {
+                                    await updateProjectTask(project.id, result.data.id, { metadata })
+                                }
+                                loadTasks()
+                            }
+                        }}
+                        onUpdateTask={async (taskId, updates) => {
+                            const { updateProjectTask } = await import('@/app/actions/projects')
+                            await updateProjectTask(project.id, taskId, updates)
+                            loadTasks()
+                        }}
+                        onDeleteTask={handleDeleteTask}
+                    />
+                </div>
+            )}
+
+            {project.settings?.type === 'medicine' && (
+                <div className="absolute inset-0 bg-gray-50 z-10 flex flex-col overflow-auto">
+                    <div className="p-4 border-b bg-white flex justify-between items-center sticky top-0 shadow-sm z-20">
+                        <button onClick={onBack} className="flex items-center gap-2 text-gray-500 font-bold hover:text-gray-700">
+                            ← Geri
+                        </button>
+                        <span className="text-xs font-bold text-red-600 bg-red-50 px-2 py-1 rounded-lg">İlaç Takip Modu</span>
+                    </div>
+                    <MedicineTrackerEditor
+                        project={project}
+                        tasks={tasks}
+                        onUpdate={loadTasks}
+                    />
+                </div>
             )}
 
             {/* Editing Modal */}

@@ -34,6 +34,7 @@ interface Task {
     due_date?: string | null
     is_completed?: boolean
     duration_minutes?: number
+    metadata?: any
     task_types?: {
         name: string
         icon: string | null
@@ -47,7 +48,16 @@ interface TaskHierarchicalEditorProps {
     onEditTask?: (task: Task) => void
 }
 
-function SortableTaskItem({ task, depth, onEdit, onDelete, onAddSubtask, isOverlay }: any) {
+interface SortableTaskItemProps {
+    task: Task & { children?: Task[] }
+    depth: number
+    onEdit: (task: Task) => void
+    onDelete: (id: string) => void
+    onAddSubtask: (id: string) => void
+    isOverlay?: boolean
+}
+
+function SortableTaskItem({ task, depth, onEdit, onDelete, onAddSubtask, isOverlay }: SortableTaskItemProps) {
     const {
         attributes,
         listeners,
@@ -64,90 +74,117 @@ function SortableTaskItem({ task, depth, onEdit, onDelete, onAddSubtask, isOverl
         opacity: isDragging ? 0.3 : 1
     }
 
-    const dropAnimation: DropAnimation = {
-        sideEffects: defaultDropAnimationSideEffects({
-            styles: {
-                active: {
-                    opacity: '0.5',
-                },
-            },
-        }),
-    }
-
     if (isOverlay) {
         return (
-            <div style={style} className="bg-white p-4 rounded-xl border-2 border-indigo-500 shadow-xl cursor-grabbing">
-                <div className="font-bold text-gray-900">{task.title}</div>
+            <div style={style} className="bg-white p-4 rounded-xl border-2 border-indigo-500 shadow-xl cursor-grabbing ring-4 ring-indigo-500/20 rotate-1">
+                <div className="font-bold text-gray-900 border-b pb-2 mb-2">{task.title}</div>
+                {task.children && task.children.length > 0 && (
+                    <div className="space-y-1 pl-4 border-l-2 border-indigo-100 mt-2">
+                        {task.children.map(child => (
+                            <div key={child.id} className="text-sm text-gray-600 bg-gray-50 p-2 rounded flex items-center gap-2">
+                                <span className="w-1.5 h-1.5 rounded-full bg-indigo-300"></span>
+                                <span>{child.title}</span>
+                            </div>
+                        ))}
+                    </div>
+                )}
             </div>
         )
     }
 
     return (
-        <div
-            ref={setNodeRef}
-            style={style}
-            className={`group relative flex items-center gap-3 p-3 bg-white rounded-xl border transition-all ${task.is_completed ? 'opacity-60 bg-gray-50' : 'border-gray-200 hover:border-indigo-300 hover:shadow-sm'
-                } ${depth > 0 ? 'bg-gray-50/50' : ''}`}
-        >
-            {depth > 0 && (
-                <div className="absolute -left-3 top-1/2 w-3 h-px bg-gray-300"></div>
-            )}
-
-            <button
-                {...attributes}
-                {...listeners}
-                className="cursor-grab active:cursor-grabbing text-gray-300 hover:text-indigo-500 p-1"
+        <div ref={setNodeRef} style={style} className="space-y-2 mb-2">
+            <div
+                className={`group relative flex items-center gap-3 p-3 bg-white rounded-xl border transition-all ${task.is_completed ? 'opacity-60 bg-gray-50' : 'border-gray-200 hover:border-indigo-300 hover:shadow-sm'
+                    } ${depth > 0 ? 'bg-gray-50/50' : ''}`}
             >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
-                </svg>
-            </button>
+                {depth > 0 && (
+                    <div className="absolute -left-3 top-1/2 w-3 h-px bg-gray-300"></div>
+                )}
 
-            <div className="flex-1 min-w-0" onClick={() => onEdit(task)}>
-                <div className="flex items-center gap-2">
-                    <h4 className={`font-semibold text-gray-900 truncate cursor-pointer ${task.is_completed ? 'line-through decoration-gray-400 text-gray-500' : ''}`}>
-                        {task.title}
-                    </h4>
-                    {task.task_types?.name && (
-                        <span className="text-[10px] px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded font-medium uppercase">
-                            {task.task_types.name}
-                        </span>
+                <button
+                    {...attributes}
+                    {...listeners}
+                    className="cursor-grab active:cursor-grabbing text-gray-300 hover:text-indigo-500 p-1"
+                >
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+                    </svg>
+                </button>
+
+                {/* Content */}
+                <div className="flex-1 min-w-0" onClick={() => onEdit(task)}>
+                    <div className="flex items-center gap-2">
+                        <h4 className={`font-semibold text-gray-900 truncate cursor-pointer ${task.is_completed ? 'line-through decoration-gray-400 text-gray-500' : ''}`}>
+                            {task.title}
+                        </h4>
+                        {task.task_types?.name && (
+                            <span className="text-[10px] px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded font-medium uppercase">
+                                {task.task_types.name}
+                            </span>
+                        )}
+                        {task.metadata?.calories && (
+                            <span className="text-[10px] px-1.5 py-0.5 bg-green-100 text-green-700 rounded font-medium">
+                                {task.metadata.calories} kcal
+                            </span>
+                        )}
+                    </div>
+                    {task.description && (
+                        <p className="text-xs text-gray-500 truncate">{task.description}</p>
                     )}
                 </div>
-                {task.description && (
-                    <p className="text-xs text-gray-500 truncate">{task.description}</p>
-                )}
-            </div>
 
-            <div className="flex items-center opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity gap-1">
-                {depth === 0 && (
+                {/* Actions */}
+                <div className="flex items-center opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity gap-1">
+                    {depth === 0 && (
+                        <button
+                            onClick={() => onAddSubtask(task.id)}
+                            className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition"
+                            title="Alt Görev Ekle"
+                        >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                            </svg>
+                        </button>
+                    )}
                     <button
-                        onClick={() => onAddSubtask(task.id)}
-                        className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition"
-                        title="Alt Görev Ekle"
+                        onClick={() => onEdit(task)}
+                        className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
                     >
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                         </svg>
                     </button>
-                )}
-                <button
-                    onClick={() => onEdit(task)}
-                    className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
-                >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                    </svg>
-                </button>
-                <button
-                    onClick={() => onDelete(task.id)}
-                    className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
-                >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                </button>
+                    <button
+                        onClick={() => onDelete(task.id)}
+                        className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                    >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                    </button>
+                </div>
             </div>
+
+            {/* Render Children Recursively */}
+            {task.children && task.children.length > 0 && (
+                <div className="border-l-2 border-transparent hover:border-gray-200 transition-colors">
+                    <SortableContext items={task.children.map(c => c.id)} strategy={verticalListSortingStrategy}>
+                        <div className="space-y-2">
+                            {task.children.map(child => (
+                                <SortableTaskItem
+                                    key={child.id}
+                                    task={child}
+                                    depth={depth + 1}
+                                    onEdit={onEdit}
+                                    onDelete={onDelete}
+                                    onAddSubtask={onAddSubtask}
+                                />
+                            ))}
+                        </div>
+                    </SortableContext>
+                </div>
+            )}
         </div>
     )
 }
@@ -170,31 +207,28 @@ export default function TaskHierarchicalEditor({ projectId, initialTasks, onUpda
         useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
     )
 
-    // Flat list logic:
-    // We render tasks in order. Visual depth is determined by parent_id.
-    // However, dnd-kit works best with a single flat list.
-    // We need to 'flatten' the tree but keep the order correct (Parent -> Children).
-    // Initial tasks might not be sorted by hierarchy.
+    // Convert flat list to tree
+    const taskTree = useMemo(() => {
+        const tree: (Task & { children: Task[] })[] = []
+        const taskMap = new Map()
 
-    const flattenedTasks = useMemo(() => {
-        const result: (Task & { depth: number })[] = []
+        // Init map
+        tasks.forEach(t => taskMap.set(t.id, { ...t, children: [] }))
 
-        // Find roots
-        const roots = tasks.filter(t => !t.parent_id).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
+        // Build tree
+        // Sort by sort_order first
+        const sortedTasks = [...tasks].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
 
-        roots.forEach(root => {
-            result.push({ ...root, depth: 0 })
-            // Find children
-            const children = tasks
-                .filter(t => t.parent_id === root.id)
-                .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
-
-            children.forEach(child => {
-                result.push({ ...child, depth: 1 })
-            })
+        sortedTasks.forEach(task => {
+            const node = taskMap.get(task.id)
+            if (task.parent_id && taskMap.has(task.parent_id)) {
+                taskMap.get(task.parent_id).children.push(node)
+            } else {
+                tree.push(node)
+            }
         })
 
-        return result
+        return tree
     }, [tasks])
 
     const handleDragStart = (event: DragStartEvent) => {
@@ -206,94 +240,75 @@ export default function TaskHierarchicalEditor({ projectId, initialTasks, onUpda
         setActiveId(null)
 
         if (!over) return
+        if (active.id === over.id) return
 
-        if (active.id !== over.id) {
-            const oldIndex = flattenedTasks.findIndex(t => t.id === active.id)
-            const newIndex = flattenedTasks.findIndex(t => t.id === over.id)
+        // Use tasks directly
+        const activeTask = tasks.find(t => t.id === active.id)
+        if (!activeTask) return
 
-            const activeTask = flattenedTasks[oldIndex]
-            const overTask = flattenedTasks[newIndex] // The item we dropped ON
+        let overTask = tasks.find(t => t.id === over.id)
+        if (!overTask) return
 
-            // Determining new parent and order
-            let newParentId = activeTask.parent_id
-            let reordered = false
+        // LOGIC: Resolve 'over' to the same level as 'active' if possible
 
-            // Simple reorder in same list?
-            if (activeTask.parent_id === overTask.parent_id) {
-                // Same depth
-                // Just visually swap?
-                // For backend, we need to update sort_order.
-                // We'll update state optimistically first.
-                // But wait, `flattenedTasks` is derived. We need to update `tasks`.
-
-                // We basically need to re-sort the source array.
-                // It's tricky with 'derived' lists.
-                // Let's rely on standard logic:
-                // If dropped on same parent, update sort order of siblings.
-
-                // Get all siblings
-                const siblings = tasks
-                    .filter(t => t.parent_id === activeTask.parent_id)
-                    .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
-
-                const oldSiblingIndex = siblings.findIndex(t => t.id === active.id)
-                const newSiblingIndex = siblings.findIndex(t => t.id === over.id) // This might be approximate if over is not sibling
-
-                // If over is NOT a sibling, we might be reparenting or moving across groups.
-                // Current rule: ONLY allow moving within same parent for MVP simplicity in this component?
-                // USER REQUEST: "Subtask'ı başka bir taska aktarabilirdim" (Move child to another parent).
-
-                // Let's implement full flexible logic:
-                // If I drop X onto Y:
-                // Case 1: Y is a Root. X becomes Child of Y? Or X takes Y's place?
-                // Standard Sortable behavior: X takes Y's place.
-                // To reparent, we usually need to drag 'into' or 'under'.
-                // For simplicity:
-                // - Dragging uses 'linear' list. 
-                // - Reparenting is explicit via a button or specific drop zone? 
-                // - OR: If I drag a Child to a Root position -> Become Root.
-                // - If I drag a Root to a Child position -> Become sibling of that Child?
-
-                // Simpler Logic for now to avoid complexity explosion:
-                // Only allow reordering among siblings.
-                // For reparenting, use 'Edit' modal or separate action?
-                // The User asked for "group dragging", which implies parent moves with children.
-                // If I reorder a Parent, its children are hidden in the dragged item (visual overlay usually) 
-                // or they stay behind (bad).
-                // `flattenedTasks` puts children right after parent.
-
-                // Let's stick to: Reorder updates sort_order globally or locally.
-                // If we don't support Reparenting via Drag yet, it's safer.
-
-                // Optimistic visual update requires robust local state.
-                // Just use `updateTaskOrders` on the backend.
+        // Case A: Active is a ROOT item
+        if (!activeTask.parent_id) {
+            // If over is a child, find its root
+            if (overTask.parent_id) {
+                const root = tasks.find(t => t.id === overTask.parent_id)
+                if (root) overTask = root
             }
 
-            // NOTE: Implementing full tree drag-and-drop is non-trivial in minutes.
-            // I will implement "Single Level Reordering" for now.
-            // Parents sort among parents. Children sort among children of SAME parent.
-            if (activeTask.depth === overTask.depth && activeTask.parent_id === overTask.parent_id) {
-                const siblings = tasks
-                    .filter(t => t.parent_id === activeTask.parent_id)
-                    .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
+            // Now both should be roots. If not, we can't sort.
+            if (overTask.parent_id) return // Still a child (maybe deep nesting?), abort.
 
-                const oldPos = siblings.findIndex(t => t.id === active.id)
-                const newPos = siblings.findIndex(t => t.id === over.id)
+            // Perform Root Swap
+            const roots = tasks.filter(t => !t.parent_id).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
+            const oldIndex = roots.findIndex(t => t.id === activeTask.id)
+            const newIndex = roots.findIndex(t => t.id === overTask.id)
 
-                const newSiblings = arrayMove(siblings, oldPos, newPos)
+            if (oldIndex !== newIndex) {
+                const newRoots = arrayMove(roots, oldIndex, newIndex)
 
-                // Update local state by mapping original tasks
-                const updates = newSiblings.map((t, i) => ({ id: t.id, sort_order: i }))
+                // Re-calculate sort orders for ALL roots
+                const updates = newRoots.map((t, i) => ({ id: t.id, sort_order: i }))
 
-                // Update tasks
+                // Optimistic update
                 const newTasks = [...tasks]
                 updates.forEach(u => {
-                    const task = newTasks.find(t => t.id === u.id)
-                    if (task) task.sort_order = u.sort_order
+                    const t = newTasks.find(x => x.id === u.id)
+                    if (t) t.sort_order = u.sort_order
                 })
                 setTasks(newTasks)
 
-                // Backend Update
+                await updateTaskOrders(projectId, updates)
+            }
+            return
+        }
+
+        // Case B: Active is a CHILD item
+        // Only allow swapping with siblings for now
+        if (activeTask.parent_id === overTask.parent_id) {
+            const siblings = tasks
+                .filter(t => t.parent_id === activeTask.parent_id)
+                .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
+
+            const oldIndex = siblings.findIndex(t => t.id === active.id)
+            const newIndex = siblings.findIndex(t => t.id === over.id)
+
+            if (oldIndex !== newIndex) {
+                const newSiblings = arrayMove(siblings, oldIndex, newIndex)
+
+                const updates = newSiblings.map((t, i) => ({ id: t.id, sort_order: i }))
+
+                // Optimistic Update
+                const newTasks = [...tasks]
+                updates.forEach(u => {
+                    const t = newTasks.find(x => x.id === u.id)
+                    if (t) t.sort_order = u.sort_order
+                })
+                setTasks(newTasks)
+
                 await updateTaskOrders(projectId, updates)
             }
         }
@@ -325,7 +340,7 @@ export default function TaskHierarchicalEditor({ projectId, initialTasks, onUpda
         setShowInput(true)
     }
 
-    const activeItem = activeId ? flattenedTasks.find(t => t.id === activeId) : null
+    const activeItem = activeId ? tasks.find(t => t.id === activeId) : null
 
     return (
         <div className="bg-gray-50/50 rounded-2xl p-6 border border-gray-100">
@@ -371,16 +386,16 @@ export default function TaskHierarchicalEditor({ projectId, initialTasks, onUpda
                 onDragEnd={handleDragEnd}
             >
                 <SortableContext
-                    items={flattenedTasks.map(t => t.id)}
+                    items={taskTree.map(t => t.id)}
                     strategy={verticalListSortingStrategy}
                 >
-                    <div className="space-y-2">
-                        {flattenedTasks.map(task => (
+                    <div className="space-y-4">
+                        {taskTree.map(task => (
                             <SortableTaskItem
                                 key={task.id}
-                                task={task}
-                                depth={task.depth}
-                                onEdit={(t: Task) => setEditingTask(t)}
+                                task={task} // Now includes children
+                                depth={0}
+                                onEdit={(t: Task) => onEditTask ? onEditTask(t) : setEditingTask(t)}
                                 onDelete={handleDelete}
                                 onAddSubtask={(pid: string) => startAdd(pid)}
                             />
@@ -389,12 +404,24 @@ export default function TaskHierarchicalEditor({ projectId, initialTasks, onUpda
                 </SortableContext>
 
                 <DragOverlay>
-                    {activeItem ? <SortableTaskItem task={activeItem} depth={0} isOverlay /> : null}
+                    {activeItem ? (
+                        <SortableTaskItem
+                            task={{
+                                ...activeItem,
+                                children: tasks.filter(t => t.parent_id === activeItem.id) // Attach children for visual overlay
+                            }}
+                            depth={0}
+                            onEdit={() => { }}
+                            onDelete={() => { }}
+                            onAddSubtask={() => { }}
+                            isOverlay
+                        />
+                    ) : null}
                 </DragOverlay>
             </DndContext>
 
-            {/* Edit Modal Placeholders (Could be integrated) */}
-            {editingTask && (
+            {/* Edit Modal Placeholders (Fallback if onEditTask not provided) */}
+            {editingTask && !onEditTask && (
                 <div className="fixed inset-0 bg-black/20 flex items-center justify-center z-[100]" onClick={() => setEditingTask(null)}>
                     <div className="bg-white p-6 rounded-2xl shadow-2xl max-w-md w-full" onClick={e => e.stopPropagation()}>
                         <h3 className="font-bold mb-4">Görevi Düzenle</h3>

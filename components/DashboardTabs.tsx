@@ -17,6 +17,7 @@ import TutorToolsView from './tutor/TutorToolsView'
 import ProjectListView from './program/ProjectListView'
 import ProjectDetailsView from './program/ProjectDetailsView'
 import { Project } from '@/app/actions/projects'
+import FamilyDashboard from './tutor/FamilyDashboard'
 
 type TabType = 'students' | 'program' | 'gelisim' | 'iletisim' | 'araclar'
 type ProgramTabType = 'bugun' | 'haftalik' | 'aylik' | 'aliskanliklar' | 'takvim' | 'projeler'
@@ -75,7 +76,37 @@ export default function DashboardTabs({ user, isTutorMode = false, initialPerson
             loadPersonas()
         }
 
-        return () => document.removeEventListener('mousedown', handleClickOutside)
+        const handleOpenProject = (e: CustomEvent) => {
+            const project = e.detail.project
+            if (project) {
+                if (isTutorMode) {
+                    setActiveTab('students') // Ensure we are in tutor mode context if needed, but actually we want to show project details.
+                    // If shared project, it might be better to show it in a modal or specific view.
+                    // But for now let's reuse the 'program' tab logic if possible or just set state.
+                    // Actually, DashboardTabs logic for project details is under 'araclar' for personal or 'program > projeler' for students.
+                    // For a shared project owned by the user (as tutor), it should probably be under 'araclar' -> 'projects' OR 'program' -> 'projeler'
+
+                    // Let's try to find where we are.
+                    // If it's a shared shopping list, we want to open it.
+                    // The ProjectDetailsView is used in two places.
+                    // 1. activeTab === 'program' && activeProgramTab === 'projeler' (Student context)
+                    // 2. activeTab === 'araclar' && activeTool === 'projects' (Personal context)
+
+                    // Since these are "Shared" lists created by the tutor/parent, they are technically personal projects of the user.
+                    // So we should switch to 'araclar' -> 'projects' -> selectedProject.
+                    setActiveTab('araclar')
+                    setActiveTool('projects')
+                    setSelectedProject(project)
+                }
+            }
+        }
+
+        window.addEventListener('open-project', handleOpenProject as any)
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside)
+            window.removeEventListener('open-project', handleOpenProject as any)
+        }
     }, [user.id, isTutorMode])
 
     const loadPersonas = async () => {
@@ -208,51 +239,25 @@ export default function DashboardTabs({ user, isTutorMode = false, initialPerson
             {/* Content Area */}
             <div className="flex-1 overflow-auto pb-20">
                 {activeTab === 'students' && isTutorMode && (
-                    <div className="p-4 space-y-4">
-                        <header className="mb-6">
-                            <h2 className="text-xl font-bold text-gray-900">Öğrencilerim</h2>
-                            <p className="text-xs text-gray-500 font-medium">Planlama yapmak için bir öğrenci seçin.</p>
-                        </header>
-                        <div className="grid grid-cols-1 gap-4">
-                            {loadingPersonas ? (
-                                <div className="text-center py-12 text-gray-500">Öğrenci listesi yükleniyor...</div>
-                            ) : personas.length === 0 ? (
-                                <div className="text-center py-12 text-gray-500 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
-                                    <span className="text-4xl block mb-2">👶</span>
-                                    Henüz atanmış bir öğrenciniz yok.
+                    <div className="h-full">
+                        {loadingPersonas ? (
+                            <div className="flex h-full items-center justify-center">
+                                <div className="text-center text-gray-500">
+                                    <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mb-2"></div>
+                                    <div>Yükleniyor...</div>
                                 </div>
-                            ) : (
-                                personas.map((persona, index) => (
-                                    <button
-                                        key={`${persona.id}-${index}`}
-                                        onClick={() => {
-                                            setSelectedPersona(persona)
-                                            setActiveTab('program')
-                                        }}
-                                        className="flex items-center gap-4 p-4 bg-white border border-gray-200 rounded-2xl hover:border-purple-300 hover:shadow-xl transition-all text-left group"
-                                    >
-                                        <div className="h-12 w-12 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center text-xl font-bold shadow-sm">
-                                            {persona.name.charAt(0).toUpperCase()}
-                                        </div>
-                                        <div className="flex-1">
-                                            <h3 className="font-bold text-gray-900 group-hover:text-purple-600 transition">
-                                                {persona.name}
-                                            </h3>
-                                            <div className="flex items-center gap-2 mt-0.5">
-                                                <span className="text-[10px] bg-purple-50 text-purple-600 px-2 py-0.5 rounded-full font-bold uppercase tracking-tight">
-                                                    {persona.role}
-                                                </span>
-                                            </div>
-                                        </div>
-                                        <div className="text-purple-600 opacity-0 group-hover:opacity-100 transition translate-x-1 group-hover:translate-x-0 mr-2">
-                                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M9 5l7 7-7 7" />
-                                            </svg>
-                                        </div>
-                                    </button>
-                                ))
-                            )}
-                        </div>
+                            </div>
+                        ) : (
+                            <FamilyDashboard
+                                user={user}
+                                students={personas}
+                                onSelectStudent={(student) => {
+                                    setSelectedPersona(student)
+                                    setActiveTab('program')
+                                }}
+                                selectedStudentId={selectedPersona?.id}
+                            />
+                        )}
                     </div>
                 )}
 
@@ -476,7 +481,7 @@ export default function DashboardTabs({ user, isTutorMode = false, initialPerson
                             <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
                             </svg>
-                            <span className="text-[10px] font-black uppercase tracking-tight">Öğrencilerim</span>
+                            <span className="text-[10px] font-black uppercase tracking-tight">Yönetim</span>
                         </button>
                     )}
 
