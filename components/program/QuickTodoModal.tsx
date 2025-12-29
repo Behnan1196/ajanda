@@ -253,14 +253,11 @@ export default function QuickTodoModal({ onClose, initialDate, onTaskAdded, edit
                 relationship_id: null
             }
 
-            // Local Insert
             await db.tasks.add({
                 ...fullTaskData,
                 is_dirty: 1,
                 last_synced_at: null,
-                completed_at: null,
-                subject_id: null,
-                topic_id: null
+                completed_at: null
             })
 
             const { error: insertError } = await supabase
