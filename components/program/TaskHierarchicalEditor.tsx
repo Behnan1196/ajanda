@@ -246,26 +246,28 @@ export default function TaskHierarchicalEditor({ projectId, initialTasks, onUpda
         const activeTask = tasks.find(t => t.id === active.id)
         if (!activeTask) return
 
-        let overTask = tasks.find(t => t.id === over.id)
-        if (!overTask) return
+        const originalOverTask = tasks.find(t => t.id === over.id)
+        if (!originalOverTask) return
 
         // LOGIC: Resolve 'over' to the same level as 'active' if possible
 
         // Case A: Active is a ROOT item
         if (!activeTask.parent_id) {
+            let targetOverTask = originalOverTask
+
             // If over is a child, find its root
-            if (overTask.parent_id) {
-                const root = tasks.find(t => t.id === overTask.parent_id)
-                if (root) overTask = root
+            if (targetOverTask.parent_id) {
+                const root = tasks.find(t => t.id === targetOverTask.parent_id)
+                if (root) targetOverTask = root
             }
 
             // Now both should be roots. If not, we can't sort.
-            if (overTask.parent_id) return // Still a child (maybe deep nesting?), abort.
+            if (targetOverTask.parent_id) return // Still a child (maybe deep nesting?), abort.
 
             // Perform Root Swap
             const roots = tasks.filter(t => !t.parent_id).sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
             const oldIndex = roots.findIndex(t => t.id === activeTask.id)
-            const newIndex = roots.findIndex(t => t.id === overTask.id)
+            const newIndex = roots.findIndex(t => t.id === targetOverTask.id)
 
             if (oldIndex !== newIndex) {
                 const newRoots = arrayMove(roots, oldIndex, newIndex)
@@ -288,7 +290,7 @@ export default function TaskHierarchicalEditor({ projectId, initialTasks, onUpda
 
         // Case B: Active is a CHILD item
         // Only allow swapping with siblings for now
-        if (activeTask.parent_id === overTask.parent_id) {
+        if (activeTask.parent_id === originalOverTask.parent_id) {
             const siblings = tasks
                 .filter(t => t.parent_id === activeTask.parent_id)
                 .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
