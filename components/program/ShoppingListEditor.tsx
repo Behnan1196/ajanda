@@ -1,7 +1,14 @@
 'use client'
 
 import { useState } from 'react'
-import { Task } from '@/app/actions/projects'
+// import { Task } from '@/app/actions/projects'
+
+interface Task {
+    id: string
+    title: string
+    is_completed: boolean
+    metadata?: any
+}
 import { Plus, Trash2, Edit2, CheckCircle, Circle, MapPin, DollarSign } from 'lucide-react'
 
 interface ShoppingListEditorProps {
