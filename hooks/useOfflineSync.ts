@@ -143,18 +143,6 @@ export function useOfflineSync(userId: string | undefined) {
         if (!tError && types) {
             for (const t of types) await db.task_types.put(t)
         }
-
-        // Pull Subjects
-        const { data: subjects, error: sError } = await supabase.from('subjects').select('*')
-        if (!sError && subjects) {
-            for (const s of subjects) await db.subjects.put(s)
-        }
-
-        // Pull Topics
-        const { data: topics, error: toError } = await supabase.from('topics').select('*')
-        if (!toError && topics) {
-            for (const to of topics) await db.topics.put(to)
-        }
     }
 
     const fullSync = async () => {
