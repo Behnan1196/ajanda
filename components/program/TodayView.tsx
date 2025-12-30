@@ -240,52 +240,51 @@ export default function TodayView({ userId, initialDate, isTutorMode = false }: 
 
     return (
         <div className="relative">
-            {/* Tarih Navigasyonu */}
-            <div className="mb-6">
-                <div className="flex items-center justify-between bg-white p-3 px-4 rounded-xl border border-gray-100 shadow-sm">
+            {/* Tarih Navigasyonu - Sticky with glassmorphism */}
+            <div className="sticky top-0 z-20 pb-4 bg-gray-50/80 backdrop-blur-md -mx-4 px-4 pt-2">
+                <div className="flex items-center justify-between bg-white/90 backdrop-blur-xl p-3 px-4 rounded-2xl border border-white/20 shadow-[0_8px_30px_rgb(0,0,0,0.04)] ring-1 ring-black/[0.02]">
                     <button
                         onClick={goToPreviousDay}
-                        className="p-2 hover:bg-gray-100 rounded-lg transition text-gray-400 hover:text-indigo-600"
+                        className="p-2 hover:bg-gray-100 rounded-xl transition-all active:scale-95 text-gray-400 hover:text-indigo-600"
                         aria-label="Önceki gün"
                     >
                         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
                         </svg>
                     </button>
 
-                    <div className="flex items-center gap-2 flex-1 justify-center overflow-hidden px-2">
-                        <div className="flex items-center gap-2 truncate">
-                            <span className="text-[15px] font-bold text-gray-900 capitalize whitespace-nowrap">
-                                {dayName}
+                    <div className="flex flex-col items-center">
+                        <div className="flex items-center gap-2">
+                            <span className="text-[15px] font-black text-gray-900 capitalize tracking-tight">
+                                {isToday() ? 'Bugün' : dayName}
                             </span>
-                            <span className="text-[13px] text-gray-400 font-medium whitespace-nowrap">
-                                {formattedDate}
-                            </span>
+                            {tasks.length > 0 && (
+                                <span className="bg-indigo-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full shadow-lg shadow-indigo-200">
+                                    {tasks.length}
+                                </span>
+                            )}
                         </div>
-                        {tasks.length > 0 && (
-                            <span className="bg-indigo-50 text-indigo-600 text-[11px] font-bold px-2 py-0.5 rounded-full border border-indigo-100 flex-shrink-0">
-                                {tasks.length}
-                            </span>
-                        )}
+                        <span className="text-[11px] text-gray-400 font-bold uppercase tracking-widest">
+                            {formattedDate}
+                        </span>
                     </div>
 
                     <button
                         onClick={goToNextDay}
-                        className="p-2 hover:bg-gray-100 rounded-lg transition text-gray-400 hover:text-indigo-600"
+                        className="p-2 hover:bg-gray-100 rounded-xl transition-all active:scale-95 text-gray-400 hover:text-indigo-600"
                         aria-label="Sonraki gün"
                     >
                         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
                         </svg>
                     </button>
                 </div>
 
-                {/* Bugüne Dön Butonu */}
                 {!isToday() && (
-                    <div className="flex justify-center mt-3">
+                    <div className="flex justify-center -mb-2 mt-2">
                         <button
                             onClick={goToToday}
-                            className="px-4 py-1 text-xs bg-indigo-50 text-indigo-600 rounded-full hover:bg-indigo-100 transition font-semibold border border-indigo-100"
+                            className="px-4 py-1.5 text-[10px] bg-white text-indigo-600 rounded-full hover:bg-indigo-50 transition-all font-black uppercase tracking-widest border border-indigo-100 shadow-sm active:scale-95"
                         >
                             📅 Bugüne Dön
                         </button>
@@ -312,9 +311,10 @@ export default function TodayView({ userId, initialDate, isTutorMode = false }: 
                         ))}
 
                         {tasks.length === 0 && (
-                            <div className="text-center py-12 bg-white rounded-lg border-2 border-dashed border-gray-300">
-                                <p className="text-gray-500 mb-2">Bu gün için görev yok</p>
-                                <p className="text-sm text-gray-400">+ butonuna tıklayarak ekleyin</p>
+                            <div className="text-center py-20 bg-white/50 rounded-3xl border-2 border-dashed border-gray-200 flex flex-col items-center group hover:border-indigo-300 transition-colors">
+                                <div className="w-16 h-16 bg-gray-50 rounded-2xl flex items-center justify-center text-3xl mb-4 group-hover:scale-110 transition-transform">✨</div>
+                                <p className="text-gray-900 font-bold">Harika bir gün mü?</p>
+                                <p className="text-sm text-gray-400 max-w-[200px] mx-auto mt-1">Planlarını eklemek için aşağıdaki + butonuna tıkla.</p>
                             </div>
                         )}
                     </div>

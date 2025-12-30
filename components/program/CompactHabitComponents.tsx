@@ -63,27 +63,27 @@ export function CompactHabitRow({
     }, [])
 
     return (
-        <tr ref={setNodeRef} style={style} className="border-b border-gray-100 hover:brightness-95 transition">
-            {/* Compact Menu (Formerly Drag Handle Column) */}
-            <td className="p-2 w-8">
-                <div className="flex flex-col items-center">
+        <tr ref={setNodeRef} style={style} className="border-b border-gray-100 group">
+            {/* Compact Menu */}
+            <td className="p-3 w-10">
+                <div className="flex items-center justify-center">
                     <div className="relative" ref={menuRef}>
                         <button
                             onClick={() => setShowMenu(!showMenu)}
-                            className="text-gray-400 hover:text-indigo-600 p-1"
+                            className="text-gray-300 hover:text-indigo-600 p-1 rounded-lg hover:bg-white transition-all active:scale-95"
                         >
                             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 5v.01M12 12v.01M12 19v.01" />
                             </svg>
                         </button>
                         {showMenu && (
-                            <div className="absolute left-full top-0 ml-1 w-32 bg-white rounded-lg shadow-xl border border-gray-100 py-1 z-50">
+                            <div className="absolute left-full top-0 ml-2 w-40 bg-white rounded-2xl shadow-xl border border-gray-100 py-2 z-50 animate-in fade-in zoom-in duration-200">
                                 <button
                                     onClick={() => {
                                         onEdit(habit)
                                         setShowMenu(false)
                                     }}
-                                    className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+                                    className="w-full text-left px-4 py-2 text-xs font-bold text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 flex items-center gap-2 transition-colors"
                                 >
                                     <span>✏️</span> Düzenle
                                 </button>
@@ -92,7 +92,7 @@ export function CompactHabitRow({
                                         onDelete(habit.id)
                                         setShowMenu(false)
                                     }}
-                                    className="w-full text-left px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 flex items-center gap-2"
+                                    className="w-full text-left px-4 py-2 text-xs font-bold text-red-600 hover:bg-red-50 flex items-center gap-2 transition-colors"
                                 >
                                     <span>🗑️</span> Sil
                                 </button>
@@ -102,36 +102,51 @@ export function CompactHabitRow({
                 </div>
             </td>
 
-            {/* Habit Name (Draggable area) */}
-            <td className="p-2 min-w-[60px] max-w-[120px]">
+            {/* Habit Name */}
+            <td className="p-3 min-w-[100px]">
                 <div
                     {...attributes}
                     {...listeners}
                     style={{ touchAction: 'none' }}
-                    className="flex items-center gap-2 pl-1 cursor-grab active:cursor-grabbing hover:bg-black/5 rounded px-1 -ml-1 transition-colors select-none"
+                    className="flex flex-col cursor-grab active:cursor-grabbing hover:bg-white/50 rounded-xl px-2 py-1 -ml-2 transition-all select-none"
                     title="Sıralamak için sürükleyin"
                 >
-                    <span className="text-sm font-semibold text-gray-900 truncate">
-                        <span className="hidden sm:inline">{habit.name}</span>
-                        <span className="sm:hidden">{habit.name.substring(0, 5)}</span>
-                    </span>
+                    <div className="flex items-center gap-2">
+                        <span className="text-[18px] mb-0.5">{habit.icon}</span>
+                        <span className="text-sm font-black text-gray-900 leading-tight">
+                            {habit.name}
+                        </span>
+                    </div>
+                    {habit.current_streak > 0 && (
+                        <div className="flex items-center gap-1 mt-0.5">
+                            <span className="text-[10px] font-black text-orange-500 uppercase tracking-tighter">🔥 {habit.current_streak} GÜNLÜK SERİ</span>
+                        </div>
+                    )}
                 </div>
             </td>
 
             {/* Week Days */}
-            {weekDates.map((date, i) => (
-                <td key={i} className="p-1 px-1 sm:px-2 text-center">
-                    <button
-                        onClick={() => toggleCompletion(habit.id, date)}
-                        className={`w-7 h-7 sm:w-9 sm:h-9 rounded-full flex items-center justify-center transition-all border-2 ${isCompleted(habit.id, date)
-                            ? 'text-white border-[#10B981] bg-[#10B981] shadow-sm'
-                            : 'bg-transparent border-black/5 text-transparent hover:border-black/20'
-                            } ${isToday(date) && !isCompleted(habit.id, date) ? 'border-indigo-400/30' : ''}`}
-                    >
-                        {isCompleted(habit.id, date) ? '✓' : ''}
-                    </button>
-                </td>
-            ))}
+            {weekDates.map((date, i) => {
+                const completed = isCompleted(habit.id, date)
+                const today = isToday(date)
+                return (
+                    <td key={i} className="p-2 text-center">
+                        <button
+                            onClick={() => toggleCompletion(habit.id, date)}
+                            className={`w-9 h-9 rounded-2xl flex items-center justify-center transition-all duration-300 border-2 active:scale-75 ${completed
+                                    ? 'text-white border-indigo-600 bg-indigo-600 shadow-lg shadow-indigo-100'
+                                    : today
+                                        ? 'bg-white border-indigo-200 text-transparent hover:border-indigo-400'
+                                        : 'bg-white border-gray-100 text-transparent hover:border-gray-300'
+                                }`}
+                        >
+                            <svg className={`w-5 h-5 transition-transform duration-300 ${completed ? 'scale-100' : 'scale-0'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                            </svg>
+                        </button>
+                    </td>
+                )
+            })}
         </tr>
     )
 }

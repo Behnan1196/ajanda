@@ -31,7 +31,14 @@ export default function ProgressView({ userId }: ProgressViewProps) {
     const [practiceData, setPracticeData] = useState<any[]>([])
 
     const supabase = createClient()
-    const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d']
+    const COLORS = ['#6366F1', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899']
+
+    const summaryMetrics = [
+        { label: 'Haftalık Tamamlama', value: `${Math.round((weeklyData.reduce((acc, curr) => acc + curr.Tamamlanan, 0) / (weeklyData.reduce((acc, curr) => acc + curr.Tamamlanan + curr.Bekleyen, 0) || 1)) * 100)}%`, icon: '📈', color: 'indigo' },
+        { label: 'En İyi Seri', value: `${Math.max(...habitData.map(h => h.current_streak), 0)} Gün`, icon: '🔥', color: 'orange' },
+        { label: 'Ort. Beslenme', value: `${Math.round(nutritionData.reduce((acc, curr) => acc + curr.Kalori, 0) / (nutritionData.length || 1))} kcal`, icon: '🍏', color: 'emerald' },
+        { label: 'Müzik Pratiği', value: `${practiceData.reduce((acc, curr) => acc + curr.Dakika, 0)} dk`, icon: '🎸', color: 'purple' },
+    ]
 
     useEffect(() => {
         loadMetrics()
@@ -173,31 +180,47 @@ export default function ProgressView({ userId }: ProgressViewProps) {
     }
 
     return (
-        <div className="space-y-6 pb-12">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">Gelişim Analizi</h2>
+        <div className="space-y-8 pb-12">
+            <div className="flex flex-col gap-1">
+                <h2 className="text-2xl font-black text-gray-900 tracking-tight">Gelişim Analizi</h2>
+                <p className="text-sm text-gray-500 font-medium uppercase tracking-wider">KİŞİSEL ÖZETİM</p>
+            </div>
+
+            {/* Summary Cards */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {summaryMetrics.map((metric, i) => (
+                    <div key={i} className={`bg-white p-4 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow`}>
+                        <div className="text-2xl mb-2">{metric.icon}</div>
+                        <div className="text-xs font-black text-gray-400 uppercase tracking-widest mb-1">{metric.label}</div>
+                        <div className="text-xl font-black text-gray-900">{metric.value}</div>
+                    </div>
+                ))}
+            </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Weekly Completion Chart */}
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                    <h3 className="text-lg font-semibold text-gray-800 mb-4">Son 7 Gün Görev Durumu</h3>
+                <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+                    <h3 className="text-sm font-black text-gray-400 uppercase tracking-widest mb-6">Son 7 Gün Görev Durumu</h3>
                     <div className="h-[300px]">
                         <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={weeklyData}>
-                                <CartesianGrid strokeDasharray="3 3" />
-                                <XAxis dataKey="name" />
-                                <YAxis />
-                                <Tooltip />
-                                <Legend />
-                                <Bar dataKey="Tamamlanan" stackId="a" fill="#10B981" />
-                                <Bar dataKey="Bekleyen" stackId="a" fill="#E5E7EB" />
+                            <BarChart data={weeklyData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F3F4F6" />
+                                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fontWeight: 700, fill: '#9CA3AF' }} />
+                                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fontWeight: 700, fill: '#9CA3AF' }} />
+                                <Tooltip
+                                    cursor={{ fill: '#F9FAFB' }}
+                                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                                />
+                                <Bar dataKey="Tamamlanan" stackId="a" fill="#6366F1" radius={[0, 0, 0, 0]} />
+                                <Bar dataKey="Bekleyen" stackId="a" fill="#E5E7EB" radius={[6, 6, 0, 0]} />
                             </BarChart>
                         </ResponsiveContainer>
                     </div>
                 </div>
 
                 {/* Subject Distribution Chart */}
-                <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                    <h3 className="text-lg font-semibold text-gray-800 mb-4">Ders Bazlı Çalışma Dağılımı</h3>
+                <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+                    <h3 className="text-sm font-black text-gray-400 uppercase tracking-widest mb-6">Ders Bazlı Çalışma Dağılımı</h3>
                     {subjectData.length > 0 ? (
                         <div className="h-[300px]">
                             <ResponsiveContainer width="100%" height="100%">
@@ -206,96 +229,103 @@ export default function ProgressView({ userId }: ProgressViewProps) {
                                         data={subjectData}
                                         cx="50%"
                                         cy="50%"
-                                        labelLine={false}
-                                        label={({ name, percent }: any) => `${name} ${(percent * 100).toFixed(0)}%`}
-                                        outerRadius={80}
-                                        fill="#8884d8"
+                                        innerRadius={60}
+                                        outerRadius={100}
+                                        paddingAngle={5}
                                         dataKey="value"
                                     >
                                         {subjectData.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="rgba(0,0,0,0)" />
                                         ))}
                                     </Pie>
-                                    <Tooltip />
+                                    <Tooltip
+                                        contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                                    />
                                 </PieChart>
                             </ResponsiveContainer>
                         </div>
                     ) : (
-                        <div className="h-[300px] flex items-center justify-center text-gray-400">
-                            Henüz sınav bazlı çalışma verisi yok
+                        <div className="h-[300px] flex flex-col items-center justify-center text-gray-400 bg-gray-50/50 rounded-2xl border border-dashed border-gray-200">
+                            <span className="text-3xl mb-2">📚</span>
+                            <p className="text-sm font-bold">Henüz veri yok</p>
                         </div>
                     )}
                 </div>
             </div>
 
             {/* Nutrition Chart */}
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                <h3 className="text-lg font-semibold text-gray-800 mb-4">Beslenme ve Kalori Takibi 🥗</h3>
+            <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+                <h3 className="text-sm font-black text-gray-400 uppercase tracking-widest mb-6">Beslenme ve Kalori Takibi</h3>
                 {nutritionData.length > 0 ? (
                     <div className="h-[300px]">
                         <ResponsiveContainer width="100%" height="100%">
-                            <LineChart data={nutritionData}>
-                                <CartesianGrid strokeDasharray="3 3" />
-                                <XAxis dataKey="date" />
-                                <YAxis yAxisId="left" orientation="left" stroke="#8884d8" />
-                                <Tooltip />
-                                <Legend />
-                                <Line yAxisId="left" type="monotone" dataKey="Kalori" stroke="#8884d8" strokeWidth={3} dot={{ r: 6 }} activeDot={{ r: 8 }} />
-                                <Line yAxisId="left" type="monotone" dataKey="Protein" stroke="#10B981" strokeWidth={2} strokeDasharray="5 5" />
+                            <LineChart data={nutritionData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F3F4F6" />
+                                <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 11, fontWeight: 700, fill: '#9CA3AF' }} />
+                                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fontWeight: 700, fill: '#9CA3AF' }} />
+                                <Tooltip
+                                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                                />
+                                <Line type="monotone" dataKey="Kalori" stroke="#6366F1" strokeWidth={4} dot={{ r: 4, fill: '#6366F1', strokeWidth: 2, stroke: '#fff' }} activeDot={{ r: 6, strokeWidth: 0 }} />
+                                <Line type="monotone" dataKey="Protein" stroke="#10B981" strokeWidth={2} strokeDasharray="5 5" dot={false} />
                             </LineChart>
                         </ResponsiveContainer>
                     </div>
                 ) : (
-                    <div className="h-[200px] flex flex-col items-center justify-center text-gray-400 bg-gray-50 rounded-lg border border-dashed border-gray-200">
-                        <span className="text-3xl mb-2">📊</span>
-                        <p className="text-sm">Henüz tamamlanmış beslenme kaydı bulunmuyor.</p>
+                    <div className="h-[200px] flex flex-col items-center justify-center text-gray-400 bg-gray-50/50 rounded-2xl border border-dashed border-gray-200">
+                        <span className="text-3xl mb-2">🥗</span>
+                        <p className="text-sm font-bold">Henüz beslenme kaydı yok</p>
                     </div>
                 )}
             </div>
 
             {/* Music Practice Chart */}
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                <h3 className="text-lg font-semibold text-gray-800 mb-4">Müzik Pratik Süresi 🎸</h3>
+            <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+                <h3 className="text-sm font-black text-gray-400 uppercase tracking-widest mb-6">Müzik Pratik Süresi</h3>
                 {practiceData.length > 0 ? (
                     <div className="h-[250px]">
                         <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={practiceData}>
-                                <CartesianGrid strokeDasharray="3 3" />
-                                <XAxis dataKey="date" />
-                                <YAxis />
-                                <Tooltip />
-                                <Bar dataKey="Dakika" fill="#8B5CF6" radius={[4, 4, 0, 0]} />
+                            <BarChart data={practiceData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F3F4F6" />
+                                <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 11, fontWeight: 700, fill: '#9CA3AF' }} />
+                                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fontWeight: 700, fill: '#9CA3AF' }} />
+                                <Tooltip
+                                    cursor={{ fill: '#F9FAFB' }}
+                                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}
+                                />
+                                <Bar dataKey="Dakika" fill="#8B5CF6" radius={[6, 6, 0, 0]} />
                             </BarChart>
                         </ResponsiveContainer>
                     </div>
                 ) : (
-                    <div className="h-[150px] flex flex-col items-center justify-center text-gray-400 bg-gray-50 rounded-lg border border-dashed border-gray-200">
-                        <span className="text-2xl mb-2">🎵</span>
-                        <p className="text-sm">Henüz pratik kaydı bulunmuyor.</p>
+                    <div className="h-[150px] flex flex-col items-center justify-center text-gray-400 bg-gray-50/50 rounded-2xl border border-dashed border-gray-200">
+                        <span className="text-3xl mb-2">🎵</span>
+                        <p className="text-sm font-bold">Henüz pratik kaydı yok</p>
                     </div>
                 )}
             </div>
 
             {/* Habit Stats */}
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-                <h3 className="text-lg font-semibold text-gray-800 mb-4">En İyi Alışkanlık Zincirleri 🔥</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+            <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
+                <h3 className="text-sm font-black text-gray-400 uppercase tracking-widest mb-6">En İyi Alışkanlık Zincirleri</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {habitData.map((habit, index) => (
-                        <div key={index} className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg border border-gray-100">
-                            <div className="text-2xl">{habit.icon}</div>
+                        <div key={index} className="flex items-center gap-4 p-4 bg-gray-50/50 rounded-2xl border border-gray-100 group hover:bg-white hover:shadow-md transition-all">
+                            <div className="text-3xl group-hover:scale-110 transition-transform">{habit.icon}</div>
                             <div>
-                                <h4 className="font-medium text-gray-900">{habit.name}</h4>
-                                <div className="text-sm text-gray-500">
-                                    <span className="font-bold text-orange-500">{habit.current_streak} gün</span> zincir
-                                </div>
-                                <div className="text-xs text-gray-400">
-                                    Toplam {habit.total_completions} kez
+                                <h4 className="font-black text-gray-900 leading-tight">{habit.name}</h4>
+                                <div className="flex items-center gap-2 mt-1">
+                                    <span className="text-xs font-black text-orange-500 bg-orange-50 px-2 py-0.5 rounded-full">🔥 {habit.current_streak} Gün</span>
+                                    <span className="text-[10px] font-bold text-gray-400 uppercase">Toplam {habit.total_completions}</span>
                                 </div>
                             </div>
                         </div>
                     ))}
                     {habitData.length === 0 && (
-                        <div className="text-gray-500 italic">Henüz aktif alışkanlık yok.</div>
+                        <div className="col-span-full py-12 flex flex-col items-center justify-center text-gray-400 bg-gray-50/50 rounded-2xl border border-dashed border-gray-200">
+                            <span className="text-3xl mb-2">⛓️</span>
+                            <p className="text-sm font-bold">Henüz aktif alışkanlık yok</p>
+                        </div>
                     )}
                 </div>
             </div>

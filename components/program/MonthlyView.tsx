@@ -155,36 +155,36 @@ export default function MonthlyView({ userId, onDateSelect }: MonthlyViewProps) 
     return (
         <div className="p-4">
             {/* Header */}
-            <div className="mb-4">
-                <div className="flex items-center justify-between mb-4">
+            <div className="mb-6 flex flex-col gap-4">
+                <div className="flex items-center justify-between bg-white/50 p-2 rounded-2xl border border-white/20">
                     <button
                         onClick={goToPreviousMonth}
-                        className="p-2 hover:bg-gray-100 rounded-lg transition"
+                        className="p-2 hover:bg-white rounded-xl transition-all active:scale-90 text-gray-400 hover:text-indigo-600 shadow-sm border border-transparent hover:border-gray-100"
                     >
-                        <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
                         </svg>
                     </button>
 
-                    <h2 className="text-lg font-semibold text-gray-900 capitalize">
+                    <h2 className="text-base font-black text-gray-900 capitalize tracking-tight">
                         {monthName}
                     </h2>
 
                     <button
                         onClick={goToNextMonth}
-                        className="p-2 hover:bg-gray-100 rounded-lg transition"
+                        className="p-2 hover:bg-white rounded-xl transition-all active:scale-90 text-gray-400 hover:text-indigo-600 shadow-sm border border-transparent hover:border-gray-100"
                     >
-                        <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
                         </svg>
                     </button>
                 </div>
 
                 <button
                     onClick={goToToday}
-                    className="w-full px-4 py-2 text-sm bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition font-medium"
+                    className="w-full px-4 py-2 text-[10px] bg-white text-indigo-600 rounded-xl hover:bg-indigo-50 transition-all font-black uppercase tracking-widest border border-indigo-100 shadow-sm active:scale-95"
                 >
-                    Bu Aya Dön
+                    📅 Bu Aya Dön
                 </button>
             </div>
 

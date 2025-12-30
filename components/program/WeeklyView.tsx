@@ -488,23 +488,23 @@ export default function WeeklyView({
     return (
         <div className="space-y-4">
             {/* Header */}
-            <div className="flex items-center justify-between">
-                <button onClick={() => navigateWeek('prev')} className="p-2 hover:bg-gray-100 rounded-lg">
-                    <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            <div className="flex items-center justify-between bg-white/50 p-2 rounded-2xl border border-white/20">
+                <button onClick={() => navigateWeek('prev')} className="p-2 hover:bg-white rounded-xl transition-all active:scale-90 text-gray-400 hover:text-indigo-600 shadow-sm border border-transparent hover:border-gray-100">
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
                     </svg>
                 </button>
 
                 <div className="text-center">
-                    <h2 className="text-lg font-semibold text-gray-900 capitalize">{monthName}</h2>
-                    <button onClick={goToThisWeek} className="text-sm text-indigo-600 font-medium hover:text-indigo-800">
+                    <h2 className="text-base font-black text-gray-900 capitalize tracking-tight">{monthName}</h2>
+                    <button onClick={goToThisWeek} className="text-[10px] text-indigo-600 font-black uppercase tracking-widest hover:text-indigo-800 transition">
                         Bu Hafta
                     </button>
                 </div>
 
-                <button onClick={() => navigateWeek('next')} className="p-2 hover:bg-gray-100 rounded-lg">
-                    <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                <button onClick={() => navigateWeek('next')} className="p-2 hover:bg-white rounded-xl transition-all active:scale-90 text-gray-400 hover:text-indigo-600 shadow-sm border border-transparent hover:border-gray-100">
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
                     </svg>
                 </button>
             </div>

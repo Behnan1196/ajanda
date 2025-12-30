@@ -23,7 +23,6 @@ export async function getAssignedPersonas() {
     }
 
     // Fetch personas assigned to this tutor
-    console.log('getAssignedPersonas Debug: Fetching for coach', user.id)
     const { data: personas, error } = await supabase
         .from('user_relationships')
         .select(`
@@ -42,8 +41,6 @@ export async function getAssignedPersonas() {
         console.error('Error fetching personas:', error)
         return { error: error.message }
     }
-
-    console.log('getAssignedPersonas Debug: Raw results', personas?.length)
 
     // Flatten the response and group by student ID
     const studentMap = new Map<string, any>()
@@ -69,18 +66,9 @@ export async function getAssignedPersonas() {
         role: s.roles.join(', ')
     }))
 
-    // Add the user themselves as a persona (Self-coaching)
-    const selfPersona = {
-        id: userData.id,
-        name: `${userData.name} (Kendim)`,
-        email: userData.email,
-        relationshipId: null, // No relationship required for self
-        role: 'Kişisel Gelişim'
-    }
-
     return {
         success: true,
-        data: [selfPersona, ...mappedPersonas]
+        data: mappedPersonas
     }
 }
 

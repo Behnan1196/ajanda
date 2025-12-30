@@ -185,18 +185,18 @@ export default function CompactHabitGrid({ userId, onEdit }: CompactHabitGridPro
                 onDragStart={handleDragStart}
                 onDragEnd={handleDragEnd}
             >
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-x-auto">
                     <table className="w-full text-xs">
                         <thead>
-                            <tr className="bg-gray-50 border-b border-gray-100">
-                                <th className="p-2 w-8"></th>
-                                <th className="p-2 text-left text-gray-400 font-medium"></th>
+                            <tr className="bg-gray-50/50 border-b border-gray-100">
+                                <th className="p-4 w-10"></th>
+                                <th className="p-4 text-left text-[10px] font-black text-gray-400 uppercase tracking-widest">Alışkanlık</th>
                                 {weekDates.map((date, i) => (
-                                    <th key={i} className="p-2 text-center">
-                                        <div className={`text-[10px] ${isToday(date) ? 'text-indigo-600 font-bold' : 'text-gray-400'}`}>
+                                    <th key={i} className="p-2 text-center min-w-[50px]">
+                                        <div className={`text-[10px] font-black uppercase tracking-tighter ${isToday(date) ? 'text-indigo-600' : 'text-gray-400'}`}>
                                             {dayNames[i]}
                                         </div>
-                                        <div className={`font-bold ${isToday(date) ? 'text-indigo-700' : 'text-gray-900'}`}>{date.getDate()}</div>
+                                        <div className={`text-sm font-black ${isToday(date) ? 'text-indigo-700' : 'text-gray-900'}`}>{date.getDate()}</div>
                                     </th>
                                 ))}
                             </tr>

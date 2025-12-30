@@ -246,16 +246,15 @@ export default function TaskHierarchicalEditor({ projectId, initialTasks, onUpda
         const activeTask = tasks.find(t => t.id === active.id)
         if (!activeTask) return
 
-        const originalOverTask = tasks.find(t => t.id === over.id)
-        if (!originalOverTask) return
+        const overTask = tasks.find(t => t.id === over.id)
+        if (!overTask) return
 
         // LOGIC: Resolve 'over' to the same level as 'active' if possible
 
         // Case A: Active is a ROOT item
         if (!activeTask.parent_id) {
-            let targetOverTask = originalOverTask
-
             // If over is a child, find its root
+            let targetOverTask = overTask
             if (targetOverTask.parent_id) {
                 const root = tasks.find(t => t.id === targetOverTask.parent_id)
                 if (root) targetOverTask = root
@@ -290,7 +289,7 @@ export default function TaskHierarchicalEditor({ projectId, initialTasks, onUpda
 
         // Case B: Active is a CHILD item
         // Only allow swapping with siblings for now
-        if (activeTask.parent_id === originalOverTask.parent_id) {
+        if (activeTask.parent_id === overTask.parent_id) {
             const siblings = tasks
                 .filter(t => t.parent_id === activeTask.parent_id)
                 .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))

@@ -93,21 +93,21 @@ export default function WeeklyTaskCard({
         const color = s?.color || 'white'
         const border = s?.border || 'solid'
 
-        let classes = ''
+        let classes = 'transition-all duration-300 '
 
-        // Colors
+        // Colors - using more premium shades
         switch (color) {
-            case 'red': classes = 'bg-red-50 border-red-200'; break;
-            case 'green': classes = 'bg-emerald-50 border-emerald-200'; break;
-            case 'blue': classes = 'bg-blue-50 border-blue-200'; break;
-            case 'yellow': classes = 'bg-amber-50 border-amber-200'; break;
-            case 'purple': classes = 'bg-purple-50 border-purple-200'; break;
-            default: classes = 'bg-white border-gray-200';
+            case 'red': classes += 'bg-red-50/50 border-red-100 ring-1 ring-red-200/20'; break;
+            case 'green': classes += 'bg-emerald-50/50 border-emerald-100 ring-1 ring-emerald-200/20'; break;
+            case 'blue': classes += 'bg-blue-50/50 border-blue-100 ring-1 ring-blue-200/20'; break;
+            case 'yellow': classes += 'bg-amber-50/50 border-amber-100 ring-1 ring-amber-200/20'; break;
+            case 'purple': classes += 'bg-purple-50/50 border-purple-100 ring-1 ring-purple-200/20'; break;
+            default: classes += 'bg-white border-gray-100 shadow-sm hover:shadow-md';
         }
 
         // Border Style
         if (border === 'dashed') classes += ' border-dashed'
-        if (border === 'thick') classes += ' border-l-4'
+        if (border === 'thick') classes += ' border-l-4 border-l-indigo-500'
 
         return classes
     }
@@ -116,7 +116,7 @@ export default function WeeklyTaskCard({
         <div
             ref={isOverlay ? undefined : setNodeRef}
             style={isOverlay ? undefined : style}
-            className={`${getStyleClasses()} rounded-xl p-3 shadow-sm border hover:shadow-md transition group ${task.is_completed ? 'opacity-60' : ''} ${isOverlay ? 'shadow-xl ring-2 ring-indigo-400 rotate-2 cursor-grabbing pointer-events-none' : ''
+            className={`${getStyleClasses()} rounded-2xl p-3 border transition group ${task.is_completed ? 'opacity-60 grayscale-[0.5]' : ''} ${isOverlay ? 'shadow-xl ring-2 ring-indigo-400 rotate-2 cursor-grabbing pointer-events-none' : ''
                 }`}
         >
             <div className="flex items-start gap-3">
@@ -207,12 +207,12 @@ export default function WeeklyTaskCard({
                             e.stopPropagation()
                             task.is_completed ? onUncomplete() : onComplete()
                         }}
-                        className={`w-6 h-6 rounded-full border flex items-center justify-center transition-all ${task.is_completed
-                            ? 'bg-green-500 border-green-500 text-white'
-                            : 'border-gray-300 text-transparent hover:border-green-500 hover:text-green-500'
+                        className={`w-7 h-7 rounded-xl border-2 flex items-center justify-center transition-all duration-300 ${task.is_completed
+                            ? 'bg-green-500 border-green-500 text-white shadow-lg shadow-green-200'
+                            : 'bg-white border-gray-100 text-transparent hover:border-indigo-400 hover:text-indigo-200'
                             }`}
                     >
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <svg className={`w-4 h-4 transition-transform duration-300 ${task.is_completed ? 'scale-100' : 'scale-50'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                         </svg>
                     </button>
