@@ -13,26 +13,34 @@ import { getAssignedPersonas } from '@/app/actions/tutor'
 interface CoachingAppViewProps {
     onClose: () => void
     userId: string // Coach's ID
+    initialPersonaId?: string
 }
 
 type CoachingTab = 'weekly' | 'analysis' | 'templates'
 
-export default function CoachingAppView({ onClose, userId }: CoachingAppViewProps) {
+export default function CoachingAppView({ onClose, userId, initialPersonaId }: CoachingAppViewProps) {
     const [personas, setPersonas] = useState<any[]>([])
     const [selectedPersona, setSelectedPersona] = useState<any>(null)
     const [activeTab, setActiveTab] = useState<CoachingTab>('weekly')
     const [loading, setLoading] = useState(true)
 
     useEffect(() => {
-        loadPersonas()
+        loadInitialData()
     }, [])
 
-    const loadPersonas = async () => {
+    const loadInitialData = async () => {
         setLoading(true)
         const result = await getAssignedPersonas()
         if (result.success) {
-            // Filter out 'Self' if it exists in the action, but we already removed it in tutor.ts
             setPersonas(result.data)
+
+            // Auto-select if initialPersonaId is provided
+            if (initialPersonaId) {
+                const found = result.data.find((p: any) => p.id === initialPersonaId)
+                if (found) {
+                    setSelectedPersona(found)
+                }
+            }
         }
         setLoading(false)
     }

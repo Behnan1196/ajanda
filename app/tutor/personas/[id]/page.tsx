@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import DashboardTabs from '@/components/DashboardTabs'
+import TutorPageClient from '../../TutorPageClient'
 
 export default async function PersonaDetailPage({ params }: { params: { id: string } }) {
     const supabase = await createClient()
@@ -11,9 +11,8 @@ export default async function PersonaDetailPage({ params }: { params: { id: stri
     }
 
     return (
-        <DashboardTabs
-            user={user}
-            isTutorMode={true}
+        <TutorPageClient
+            userId={user.id}
             initialPersonaId={params.id}
         />
     )
