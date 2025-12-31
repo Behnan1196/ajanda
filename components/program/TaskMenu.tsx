@@ -93,6 +93,7 @@ export default function TaskMenu({ taskId, isCompleted, onEdit, onDelete, onUnco
                             </button>
                         )}
 
+
                         <div className="h-px bg-gray-100 my-1" />
 
                         {onDelete && (

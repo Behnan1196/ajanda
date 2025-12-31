@@ -75,6 +75,13 @@ export default function WeeklyView({
     const [weekTasks, setWeekTasks] = useState<Map<string, Task[]>>(new Map())
     const [specializedTasks, setSpecializedTasks] = useState<Map<string, Task[]>>(new Map())
     const [loading, setLoading] = useState(true)
+    const [showQuickTodoModal, setShowQuickTodoModal] = useState(false)
+    const [showTaskModal, setShowTaskModal] = useState(false)
+    const [editingTask, setEditingTask] = useState<Task | null>(null)
+    const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined)
+    const [styleModalConfig, setStyleModalConfig] = useState<{ task: Task | null; isOpen: boolean }>({ task: null, isOpen: false })
+    const [activeId, setActiveId] = useState<string | null>(null)
+    const supabase = createClient()
 
     const toLocalISOString = (date: Date) => {
         const offset = date.getTimezoneOffset()
@@ -116,14 +123,6 @@ export default function WeeklyView({
     }
 
 
-    const [showTaskModal, setShowTaskModal] = useState(false)
-    const [showQuickTodoModal, setShowQuickTodoModal] = useState(false)
-    const [selectedDate, setSelectedDate] = useState<Date>(new Date())
-    const [editingTask, setEditingTask] = useState<Task | null>(null)
-    const [styleModalConfig, setStyleModalConfig] = useState<{ task: Task | null; isOpen: boolean }>({ task: null, isOpen: false })
-    const [activeId, setActiveId] = useState<string | null>(null)
-    const supabase = createClient()
-
     // Drag & Drop sensors
     const sensors = useSensors(
         useSensor(PointerSensor, {
@@ -144,17 +143,18 @@ export default function WeeklyView({
      * Prioritize pointerWithin for containers to prevent "long card" overlap issues
      */
     const customCollisionDetection: CollisionDetection = (args) => {
-        // 1. Find if we are directly over a container or item with pointer
+        // 1. First, check pointer collisions for specific tasks
         const pointerCollisions = pointerWithin(args)
 
-        // 2. If we have pointer collisions, prioritize containers
-        if (pointerCollisions.length > 0) {
-            const containerCollision = pointerCollisions.find(c => weekTasks.has(c.id as string))
-            if (containerCollision) return [containerCollision]
-            return pointerCollisions
-        }
+        // 2. If we are over a task card, return that collision immediately for precise sorting
+        const taskCollision = pointerCollisions.find(c => dataFlatten.some(t => t.id === c.id))
+        if (taskCollision) return [taskCollision]
 
-        // 3. Fallback to closest corners for sorting within container or near-misses
+        // 3. Then prioritize containers (days) if we are in the day area but not over a specific card
+        const containerCollision = pointerCollisions.find(c => weekTasks.has(c.id as string))
+        if (containerCollision) return [containerCollision]
+
+        // 4. Default to closest corners
         return closestCorners(args)
     }
 
@@ -384,116 +384,121 @@ export default function WeeklyView({
         const activeContainer = findContainer(activeId as string)
         const overContainer = findContainer(overId as string)
 
-        if (!activeContainer || !overContainer || activeContainer === overContainer) {
-            return
-        }
+        if (!activeContainer || !overContainer) return
 
-        setWeekTasks((prev) => {
-            const updatedMap = new Map(prev)
-            const activeItems = [...(updatedMap.get(activeContainer) || [])]
-            const overItems = [...(updatedMap.get(overContainer) || [])]
+        if (activeContainer !== overContainer) {
+            setWeekTasks((prev) => {
+                const updatedMap = new Map(prev)
+                const activeItems = [...(updatedMap.get(activeContainer) || [])]
+                const overItems = [...(updatedMap.get(overContainer) || [])]
 
-            const activeIndex = activeItems.findIndex((item) => item.id === activeId)
-            let overIndex = overItems.findIndex((item) => item.id === overId)
+                const activeIndex = activeItems.findIndex((item) => item.id === activeId)
+                let overIndex = overItems.findIndex((item) => item.id === overId)
 
-            if (activeIndex !== -1) {
-                const [item] = activeItems.splice(activeIndex, 1)
-                const newItem = { ...item, due_date: overContainer }
+                if (activeIndex !== -1) {
+                    const [item] = activeItems.splice(activeIndex, 1)
+                    const newItem = { ...item, due_date: overContainer }
 
-                if (overIndex === -1) {
-                    overItems.push(newItem)
-                } else {
-                    overItems.splice(overIndex, 0, newItem)
+                    if (overIndex === -1) {
+                        overItems.push(newItem)
+                    } else {
+                        overItems.splice(overIndex, 0, newItem)
+                    }
+
+                    updatedMap.set(activeContainer, activeItems)
+                    updatedMap.set(overContainer, overItems)
                 }
 
-                updatedMap.set(activeContainer, activeItems)
-                updatedMap.set(overContainer, overItems)
-            }
+                return updatedMap
+            })
+        } else {
+            // Reorder within the same container
+            const items = weekTasks.get(activeContainer) || []
+            const oldIndex = items.findIndex(i => i.id === activeId)
+            const newIndex = items.findIndex(i => i.id === overId)
 
-            return updatedMap
-        })
+            if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
+                setWeekTasks(prev => {
+                    const newMap = new Map(prev)
+                    const updatedItems = arrayMove(items, oldIndex, newIndex)
+                    newMap.set(activeContainer, updatedItems)
+                    return newMap
+                })
+            }
+        }
     }
 
     const handleDragEnd = async (event: DragEndEvent) => {
         const { active, over } = event
         setActiveId(null)
 
-        if (!over) return
+        if (!over) {
+            loadWeekTasks(true)
+            return
+        }
 
         const activeId = active.id as string
         const overId = over.id as string
-
         const activeContainer = findContainer(activeId)
         const overContainer = findContainer(overId)
 
         if (!activeContainer || !overContainer) return
 
-        // Handle dragging a specialized group
-        if (activeId.startsWith('group-')) {
-            const parts = activeId.split('-')
-            const groupType = parts[1] // e.g., 'nutrition', 'music'
-            const oldDate = activeContainer // The date from which the group was dragged
+        // 1. Check if we dropped ONTO a group container (Nesting)
+        const overTask = dataFlatten.find(t => t.id === overId)
+        const activeTask = dataFlatten.find(t => t.id === activeId)
 
-            if (oldDate !== overContainer) {
-                // Get all tasks of this type for the old date
-                const tasksToMove = specializedTasks.get(oldDate)?.filter(t => t.task_types?.slug === groupType) || []
+        if (overTask && overTask.metadata?.is_group === true && activeId !== overId) {
+            // Nest active task into overTask
+            const { error } = await supabase
+                .from('tasks')
+                .update({
+                    parent_id: overId,
+                    due_date: overContainer // Ensure it has same date as parent
+                })
+                .eq('id', activeId)
 
-                // Update due_date for all tasks in the group
-                for (const task of tasksToMove) {
+            if (!error) {
+                loadWeekTasks(true)
+                return
+            }
+        }
+
+        // 2. Regular Reordering / Moving / Extraction
+        // Determine the target parent_id
+        let targetParentId: string | null = null
+        if (overTask) {
+            targetParentId = overTask.parent_id || null
+        }
+
+        const containersToUpdate = new Set([activeContainer, overContainer])
+
+        for (const container of containersToUpdate) {
+            const items = weekTasks.get(container) || []
+            for (let i = 0; i < items.length; i++) {
+                const task = items[i]
+                const updateData: any = {
+                    sort_order: i,
+                    due_date: container
+                }
+
+                // If this is the active task, update its parent_id to match its new environment
+                if (task.id === activeId) {
+                    updateData.parent_id = targetParentId
+                }
+
+                const { error } = await supabase
+                    .from('tasks')
+                    .update(updateData)
+                    .eq('id', task.id)
+
+                // RECURSION: Keep children synced to parent's date
+                if (!error && task.metadata?.is_group === true) {
                     await supabase
                         .from('tasks')
-                        .update({ due_date: overContainer })
-                        .eq('id', task.id)
+                        .update({ due_date: container })
+                        .eq('parent_id', task.id)
                 }
-                loadWeekTasks(true) // Reload all tasks to reflect changes
-            }
-            return // Exit early as specialized group drag is handled
-        }
-
-        // 1. Update LOCAL state for smooth UI
-        const items = [...(weekTasks.get(overContainer) || [])]
-        const oldIndex = items.findIndex(t => t.id === activeId)
-        let newIndex = items.findIndex(t => t.id === overId)
-
-        if (newIndex === -1 && overId === overContainer) {
-            // Dropped on container itself - put at end
-            newIndex = items.length
-        }
-
-        // Calculate final state
-        const finalItems = activeId !== overId && activeContainer === overContainer
-            ? arrayMove(items, oldIndex, newIndex === -1 ? items.length - 1 : newIndex)
-            : items
-
-        // 2. Update REMOTE DB (Supabase)
-        for (let i = 0; i < finalItems.length; i++) {
-            const task = finalItems[i]
-
-            // If this is the moved task AND container changed, use server action to handle recursion
-            if (task.id === activeId && activeContainer !== overContainer && task.project_id) {
-                await updateProjectTask(task.project_id, task.id, {
-                    sort_order: i,
-                    due_date: overContainer
-                })
-            } else {
-                // Regular update for sorting or non-project tasks
-                await supabase
-                    .from('tasks')
-                    .update({
-                        sort_order: i,
-                        due_date: overContainer
-                    })
-                    .eq('id', task.id)
-            }
-        }
-
-        if (activeContainer !== overContainer) {
-            const originItems = [...(weekTasks.get(activeContainer) || [])]
-            for (let i = 0; i < originItems.length; i++) {
-                await supabase
-                    .from('tasks')
-                    .update({ sort_order: i })
-                    .eq('id', originItems[i].id)
             }
         }
 
@@ -608,7 +613,7 @@ export default function WeeklyView({
                                             strategy={verticalListSortingStrategy}
                                         >
                                             <div className="space-y-2 min-h-[50px]">
-                                                {buildTaskTree(tasksForDay).map((task) => (
+                                                {buildTaskTree(tasksForDay).map((task, idx) => (
                                                     <SortableTaskCard
                                                         key={task.id}
                                                         task={task}
@@ -619,6 +624,8 @@ export default function WeeklyView({
                                                         onStyle={() => setStyleModalConfig({ task: task, isOpen: true })}
                                                         userId={userId}
                                                         onAction={handleTaskAction}
+                                                        index={idx}
+                                                        activeId={activeId}
                                                     />
                                                 ))}
                                                 {tasksForDay.length === 0 && (

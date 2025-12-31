@@ -16,6 +16,11 @@ import {
     useSensor,
     useSensors,
     DragEndEvent,
+    DragOverEvent,
+    rectIntersection,
+    CollisionDetection,
+    pointerWithin,
+    closestCorners
 } from '@dnd-kit/core'
 import {
     SortableContext,
@@ -32,6 +37,7 @@ interface Task {
         video_url?: string
         duration?: number
         notes?: string
+        is_group?: boolean
     }
     due_date: string | null
     due_time: string | null
@@ -59,6 +65,7 @@ export default function TodayView({ userId, initialDate, isTutorMode = false }: 
     const [showQuickTodoModal, setShowQuickTodoModal] = useState(false)
     const [editingTask, setEditingTask] = useState<Task | null>(null)
     const [selectedDate, setSelectedDate] = useState(initialDate || new Date())
+    const [activeId, setActiveId] = useState<string | null>(null)
     const supabase = createClient()
 
     const buildTaskTree = (flatTasks: Task[]) => {
@@ -147,25 +154,88 @@ export default function TodayView({ userId, initialDate, isTutorMode = false }: 
         })
     )
 
-    const handleDragEnd = async (event: DragEndEvent) => {
-        const { active, over } = event
+    const handleDragStart = (event: any) => {
+        setActiveId(event.active.id)
+    }
 
+    const customCollisionDetection: CollisionDetection = (args) => {
+        const pointerCollisions = pointerWithin(args)
+        const taskCollision = pointerCollisions.find(c => tasks.some(t => t.id === c.id))
+        if (taskCollision) return [taskCollision]
+        return closestCorners(args)
+    }
+
+    const handleDragOver = (event: DragOverEvent) => {
+        const { active, over } = event
         if (!over || active.id === over.id) return
 
         const oldIndex = tasks.findIndex(t => t.id === active.id)
         const newIndex = tasks.findIndex(t => t.id === over.id)
 
-        // Optimistic update
-        const newTasks = arrayMove(tasks, oldIndex, newIndex)
-        setTasks(newTasks)
-
-        // Update database
-        for (let i = 0; i < newTasks.length; i++) {
-            await supabase
-                .from('tasks')
-                .update({ sort_order: i })
-                .eq('id', newTasks[i].id)
+        if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
+            setTasks(prev => arrayMove(prev, oldIndex, newIndex))
         }
+    }
+
+    const handleDragEnd = async (event: DragEndEvent) => {
+        const { active, over } = event
+        setActiveId(null)
+        if (!over) return
+
+        const activeId = active.id as string
+        const overId = over.id as string
+
+        if (activeId === overId) return
+
+        // 1. Check if we dropped ONTO a group container (Nesting)
+        const overTask = tasks.find(t => t.id === overId)
+        if (overTask && overTask.metadata?.is_group === true && activeId !== overId) {
+            const { error } = await supabase
+                .from('tasks')
+                .update({
+                    parent_id: overId,
+                    due_date: overTask.due_date
+                })
+                .eq('id', activeId)
+
+            if (!error) {
+                loadTasks(selectedDate)
+                return
+            }
+        }
+
+        // 2. Regular Reordering / Moving / Extraction
+        // Determine the target parent_id
+        let targetParentId: string | null = null
+        if (overTask) {
+            targetParentId = overTask.parent_id || null
+        }
+
+        const finalizedTasks = [...tasks]
+        for (let i = 0; i < finalizedTasks.length; i++) {
+            const task = finalizedTasks[i]
+            const updateData: any = { sort_order: i }
+
+            // If this is the active task, update its parent_id to match its new environment
+            if (task.id === activeId) {
+                updateData.parent_id = targetParentId
+            }
+
+            const { error } = await supabase
+                .from('tasks')
+                .update(updateData)
+                .eq('id', task.id)
+
+            // RECURSION: Keep children synced to the current date
+            if (!error && task.metadata?.is_group === true) {
+                await supabase
+                    .from('tasks')
+                    .update({ due_date: selectedDate.toISOString().split('T')[0] })
+                    .eq('parent_id', task.id)
+            }
+        }
+
+        loadTasks(selectedDate)
     }
 
     const handleTaskComplete = async (taskId: string) => {
@@ -208,15 +278,15 @@ export default function TodayView({ userId, initialDate, isTutorMode = false }: 
         }
     }
 
-    const handleTaskEdit = (task: Task) => {
-        setEditingTask(task)
-        if (task.is_private) {
-            setShowQuickTodoModal(true)
-        } else {
+    const handleAddTask = () => {
+        setEditingTask(null)
+        if (isTutorMode) {
             setShowTaskModal(true)
+        } else {
+            setShowQuickTodoModal(true)
         }
-
     }
+
 
     const handleTaskSaved = () => {
         setShowTaskModal(false)
@@ -231,12 +301,12 @@ export default function TodayView({ userId, initialDate, isTutorMode = false }: 
         setEditingTask(null)
     }
 
-    const handleAddTask = () => {
-        setEditingTask(null)
-        if (isTutorMode) {
-            setShowTaskModal(true)
-        } else {
+    const handleTaskEdit = (task: Task) => {
+        setEditingTask(task)
+        if (task.is_private) {
             setShowQuickTodoModal(true)
+        } else {
+            setShowTaskModal(true)
         }
     }
 
@@ -338,10 +408,16 @@ export default function TodayView({ userId, initialDate, isTutorMode = false }: 
             <DailyNutritionCard userId={userId} date={selectedDate} />
             <DailyPracticeCard userId={userId} date={selectedDate} />
 
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <DndContext
+                sensors={sensors}
+                collisionDetection={customCollisionDetection}
+                onDragStart={handleDragStart}
+                onDragOver={handleDragOver}
+                onDragEnd={handleDragEnd}
+            >
                 <SortableContext items={taskTree.map(t => t.id)} strategy={verticalListSortingStrategy}>
                     <div className="space-y-3 mb-20">
-                        {taskTree.map((task) => (
+                        {taskTree.map((task, idx) => (
                             <SortableTaskCard
                                 key={task.id}
                                 task={task}
@@ -350,6 +426,8 @@ export default function TodayView({ userId, initialDate, isTutorMode = false }: 
                                 onEdit={() => handleTaskEdit(task)}
                                 onDelete={() => handleTaskDelete(task.id)}
                                 onAction={handleTaskAction}
+                                index={idx}
+                                activeId={activeId}
                             />
                         ))}
 

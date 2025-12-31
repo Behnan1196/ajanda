@@ -20,9 +20,10 @@ interface QuickTodoModalProps {
     initialDate?: Date
     onTaskAdded?: () => void
     editingTask?: Task | null
+    parentId?: string | null
 }
 
-export default function QuickTodoModal({ onClose, initialDate, onTaskAdded, editingTask }: QuickTodoModalProps) {
+export default function QuickTodoModal({ onClose, initialDate, onTaskAdded, editingTask, parentId }: QuickTodoModalProps) {
     const router = useRouter()
     const [loading, setLoading] = useState(false)
     const [title, setTitle] = useState(editingTask?.title || '')
@@ -37,6 +38,7 @@ export default function QuickTodoModal({ onClose, initialDate, onTaskAdded, edit
     const [notificationPermission, setNotificationPermission] = useState<NotificationPermission | 'unsupported'>('default')
     const [showFullImage, setShowFullImage] = useState(false)
     const [activeImageIndex, setActiveImageIndex] = useState(0)
+    const [isGroup, setIsGroup] = useState(editingTask?.metadata?.is_group === true)
 
     useEffect(() => {
         if (typeof window !== 'undefined') {
@@ -247,7 +249,11 @@ export default function QuickTodoModal({ onClose, initialDate, onTaskAdded, edit
                 is_completed: false,
                 sort_order: newSortOrder,
                 project_id: null,
-                relationship_id: null
+                relationship_id: null,
+                parent_id: parentId || null,
+                metadata: {
+                    is_group: isGroup
+                }
             }
 
             const { error: insertError } = await supabase
@@ -430,6 +436,21 @@ export default function QuickTodoModal({ onClose, initialDate, onTaskAdded, edit
                                 className="w-full px-3 py-2 bg-gray-50 border border-gray-100 rounded-lg text-sm focus:ring-2 focus:ring-amber-200 focus:bg-white transition-all outline-none"
                             />
                         </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 py-1">
+                        <label className="flex items-center gap-2 cursor-pointer group">
+                            <div className={`w-10 h-6 rounded-full transition-colors relative ${isGroup ? 'bg-indigo-600' : 'bg-gray-200'}`}>
+                                <input
+                                    type="checkbox"
+                                    className="hidden"
+                                    checked={isGroup}
+                                    onChange={e => setIsGroup(e.target.checked)}
+                                />
+                                <div className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${isGroup ? 'translate-x-4' : ''}`} />
+                            </div>
+                            <span className="text-sm font-medium text-gray-700">Grup Kartı Olarak Oluştur</span>
+                        </label>
                     </div>
 
                     <div className="pt-2">
