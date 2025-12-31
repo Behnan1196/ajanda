@@ -119,7 +119,7 @@ export default function ProjectDetailsView({ project, onBack }: ProjectDetailsVi
             {/* Tab Content */}
             <div className="p-4">
                 {activeTab === 'overview' && <OverviewTab project={project} tasks={tasks} />}
-                {activeTab === 'timeline' && <TimelineTab project={project} />}
+                {activeTab === 'timeline' && <TimelineTab project={project} tasks={tasks} />}
                 {activeTab === 'tasks' && <TasksTab project={project} tasks={tasks} loading={loading} onRefresh={loadTasks} />}
                 {activeTab === 'resources' && <ResourcesTab project={project} />}
                 {activeTab === 'notes' && <NotesTab project={project} />}
@@ -183,13 +183,193 @@ function OverviewTab({ project, tasks }: { project: Project; tasks: any[] }) {
 }
 
 // Timeline Tab Component
-function TimelineTab({ project }: { project: Project }) {
-    return (
-        <div className="bg-white rounded-2xl p-6 border border-gray-200 min-h-[400px] flex items-center justify-center">
-            <div className="text-center">
+function TimelineTab({ project, tasks }: { project: Project; tasks: any[] }) {
+    // Filter milestones and their tasks
+    const milestones = tasks.filter(t => t.metadata?.project_type === 'milestone' && !t.parent_id)
+    const allTasks = tasks.filter(t => t.metadata?.project_type === 'task')
+
+    // Calculate date range
+    const dateRange = useMemo(() => {
+        if (milestones.length === 0) return null
+
+        const allDates = [...milestones, ...allTasks]
+            .map(t => t.due_date || t.created_at)
+            .filter(Boolean)
+            .map(d => new Date(d))
+
+        if (allDates.length === 0) {
+            const start = new Date()
+            const end = new Date()
+            end.setMonth(end.getMonth() + 3)
+            return { start, end }
+        }
+
+        const start = new Date(Math.min(...allDates.map(d => d.getTime())))
+        const end = new Date(Math.max(...allDates.map(d => d.getTime())))
+
+        start.setDate(start.getDate() - 7)
+        end.setDate(end.getDate() + 7)
+
+        return { start, end }
+    }, [milestones, allTasks])
+
+    // Generate month columns
+    const monthColumns = useMemo(() => {
+        if (!dateRange) return []
+
+        const columns = []
+        const current = new Date(dateRange.start)
+        current.setDate(1)
+
+        while (current <= dateRange.end) {
+            columns.push({
+                date: new Date(current),
+                label: current.toLocaleDateString('tr-TR', { month: 'short', year: 'numeric' })
+            })
+            current.setMonth(current.getMonth() + 1)
+        }
+
+        return columns
+    }, [dateRange])
+
+    const getBarStyle = (startDate: string | null, endDate: string | null) => {
+        if (!dateRange || !startDate) return { display: 'none' }
+
+        const start = new Date(startDate)
+        const end = endDate ? new Date(endDate) : new Date(start.getTime() + 7 * 24 * 60 * 60 * 1000)
+
+        const totalDuration = dateRange.end.getTime() - dateRange.start.getTime()
+        const barStart = start.getTime() - dateRange.start.getTime()
+        const barDuration = end.getTime() - start.getTime()
+
+        const left = (barStart / totalDuration) * 100
+        const width = (barDuration / totalDuration) * 100
+
+        return {
+            left: `${Math.max(0, left)}%`,
+            width: `${Math.min(100 - left, width)}%`
+        }
+    }
+
+    const getTodayPosition = () => {
+        if (!dateRange) return null
+
+        const today = new Date()
+        const totalDuration = dateRange.end.getTime() - dateRange.start.getTime()
+        const todayOffset = today.getTime() - dateRange.start.getTime()
+
+        if (todayOffset < 0 || todayOffset > totalDuration) return null
+
+        return (todayOffset / totalDuration) * 100
+    }
+
+    const todayPosition = getTodayPosition()
+
+    if (!dateRange || milestones.length === 0) {
+        return (
+            <div className="bg-white rounded-2xl p-12 border border-gray-200 text-center">
                 <div className="text-6xl mb-4">📅</div>
-                <h3 className="text-xl font-bold text-gray-900 mb-2">Gantt Chart</h3>
-                <p className="text-gray-500">Week 3'te eklenecek</p>
+                <h3 className="text-xl font-bold text-gray-900 mb-2">Henüz Kilometre Taşı Yok</h3>
+                <p className="text-gray-500">Gantt chart görüntülemek için Görevler tab'ından kilometre taşları ekleyin</p>
+            </div>
+        )
+    }
+
+    return (
+        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+            <div className="p-4 border-b border-gray-200 bg-gray-50">
+                <h3 className="text-lg font-bold text-gray-900">Zaman Çizelgesi</h3>
+                <p className="text-sm text-gray-500 mt-1">
+                    {dateRange.start.toLocaleDateString('tr-TR')} - {dateRange.end.toLocaleDateString('tr-TR')}
+                </p>
+            </div>
+
+            <div className="overflow-x-auto">
+                <div className="min-w-[800px]">
+                    <div className="flex border-b border-gray-200 bg-gray-50">
+                        <div className="w-48 p-3 font-bold text-sm text-gray-700 border-r border-gray-200">Görev</div>
+                        <div className="flex-1 flex">
+                            {monthColumns.map((col, idx) => (
+                                <div key={idx} className="flex-1 p-3 text-center text-sm font-bold text-gray-700 border-r border-gray-200 last:border-r-0">
+                                    {col.label}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="relative">
+                        {todayPosition !== null && (
+                            <div className="absolute top-0 bottom-0 w-0.5 bg-red-500 z-10 pointer-events-none" style={{ left: `calc(12rem + ${todayPosition}%)` }}>
+                                <div className="absolute -top-1 -left-2 w-4 h-4 bg-red-500 rounded-full"></div>
+                            </div>
+                        )}
+
+                        {milestones.map((milestone) => {
+                            const milestoneTasks = allTasks.filter(t => t.parent_id === milestone.id)
+
+                            return (
+                                <div key={milestone.id} className="border-b border-gray-100 last:border-b-0">
+                                    <div className="flex items-center hover:bg-gray-50 transition-colors">
+                                        <div className="w-48 p-3 border-r border-gray-200">
+                                            <div className="font-bold text-sm text-gray-900 truncate">📌 {milestone.title}</div>
+                                        </div>
+                                        <div className="flex-1 relative h-12 px-2">
+                                            <div
+                                                className="absolute top-1/2 -translate-y-1/2 h-6 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-lg shadow-md flex items-center px-2"
+                                                style={getBarStyle(milestone.created_at, milestone.due_date)}
+                                            >
+                                                <span className="text-[10px] font-bold text-white truncate">{milestone.title}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {milestoneTasks.map((task) => (
+                                        <div key={task.id} className="flex items-center hover:bg-gray-50 transition-colors bg-gray-50/50">
+                                            <div className="w-48 p-3 border-r border-gray-200 pl-8">
+                                                <div className="text-sm text-gray-700 truncate flex items-center gap-2">
+                                                    <input type="checkbox" checked={task.is_completed} readOnly className="w-3 h-3 rounded border-gray-300 text-indigo-600" />
+                                                    {task.title}
+                                                </div>
+                                            </div>
+                                            <div className="flex-1 relative h-10 px-2">
+                                                {task.due_date && (
+                                                    <div
+                                                        className={`absolute top-1/2 -translate-y-1/2 h-4 rounded flex items-center px-2 ${task.is_completed ? 'bg-emerald-200 border border-emerald-400' : 'bg-gray-200 border border-gray-400'
+                                                            }`}
+                                                        style={getBarStyle(task.created_at, task.due_date)}
+                                                    >
+                                                        <span className="text-[9px] font-bold text-gray-700 truncate">{task.title}</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )
+                        })}
+                    </div>
+                </div>
+            </div>
+
+            <div className="p-4 border-t border-gray-200 bg-gray-50 flex items-center gap-6 text-xs">
+                <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 bg-gradient-to-r from-indigo-500 to-purple-500 rounded"></div>
+                    <span className="text-gray-600">Kilometre Taşı</span>
+                </div>
+                <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 bg-gray-200 border border-gray-400 rounded"></div>
+                    <span className="text-gray-600">Görev</span>
+                </div>
+                <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 bg-emerald-200 border border-emerald-400 rounded"></div>
+                    <span className="text-gray-600">Tamamlandı</span>
+                </div>
+                {todayPosition !== null && (
+                    <div className="flex items-center gap-2">
+                        <div className="w-0.5 h-4 bg-red-500"></div>
+                        <span className="text-gray-600">Bugün</span>
+                    </div>
+                )}
             </div>
         </div>
     )
