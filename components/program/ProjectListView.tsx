@@ -135,52 +135,73 @@ export default function ProjectListView({ onProjectSelect, userId, filter = 'all
                 </form>
             )}
 
-            <div className="grid grid-cols-1 gap-3">
+            <div className="grid grid-cols-1 gap-4">
                 {projects.map(project => (
                     <div
                         key={project.id}
                         onClick={() => !editingProject && !isCreating && onProjectSelect(project)}
-                        className={`flex items-center justify-between p-5 bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md hover:border-indigo-200 transition-all text-left group cursor-pointer ${editingProject?.id === project.id ? 'ring-2 ring-indigo-500' : ''}`}
+                        className={`group relative bg-white border border-gray-200 rounded-3xl p-5 hover:border-indigo-500 hover:shadow-2xl hover:shadow-indigo-50 transition-all cursor-pointer overflow-hidden ${editingProject?.id === project.id ? 'ring-2 ring-indigo-500' : ''}`}
                     >
-                        <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 bg-gray-50 text-gray-400 group-hover:bg-indigo-50 group-hover:text-indigo-600 rounded-xl flex items-center justify-center text-xl transition-colors">
-                                🏗️
+                        {/* Status Decoration Bar */}
+                        <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-emerald-500 opacity-20 group-hover:opacity-100 transition-opacity"></div>
+
+                        <div className="flex items-start justify-between">
+                            <div className="flex items-center gap-4">
+                                <div className="w-14 h-14 bg-gray-50 group-hover:bg-indigo-600 group-hover:text-white rounded-2xl flex items-center justify-center text-2xl transition-all duration-300 shadow-inner group-hover:rotate-6">
+                                    🎯
+                                </div>
+                                <div>
+                                    <h3 className="font-black text-gray-900 text-lg group-hover:text-indigo-600 transition-colors">{project.name}</h3>
+                                    <div className="flex items-center gap-3 mt-1">
+                                        <span className="text-[10px] font-black uppercase tracking-tighter px-2 py-0.5 bg-gray-100 text-gray-500 rounded-full group-hover:bg-indigo-100 group-hover:text-indigo-600 transition-colors">
+                                            Aktif Süreç
+                                        </span>
+                                        <span className="text-[10px] font-bold text-gray-400">
+                                            📅 {new Date(project.created_at).toLocaleDateString('tr-TR')}
+                                        </span>
+                                    </div>
+                                </div>
                             </div>
-                            <div>
-                                <h3 className="font-bold text-gray-900">{project.name}</h3>
-                                <p className="text-xs text-gray-400">{new Date(project.created_at).toLocaleDateString('tr-TR')} oluşturuldu</p>
+
+                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation()
+                                        startEdit(project)
+                                    }}
+                                    className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all active:scale-90"
+                                    title="Projeyi Düzenle"
+                                >
+                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                    </svg>
+                                </button>
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation()
+                                        handleDelete(project.id)
+                                    }}
+                                    className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all active:scale-90"
+                                    title="Projeyi Sil"
+                                >
+                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
+                                </button>
                             </div>
                         </div>
 
-                        <div className="flex items-center gap-2">
-                            <button
-                                onClick={(e) => {
-                                    e.stopPropagation()
-                                    startEdit(project)
-                                }}
-                                className="p-2 text-gray-300 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition"
-                                title="Projeyi Düzenle"
-                            >
-                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                </svg>
-                            </button>
-                            <button
-                                onClick={(e) => {
-                                    e.stopPropagation()
-                                    handleDelete(project.id)
-                                }}
-                                className="p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition"
-                                title="Projeyi Sil"
-                            >
-                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                </svg>
-                            </button>
-                            <div className="w-px h-6 bg-gray-200 mx-1"></div>
-                            <svg className="w-5 h-5 text-gray-300 group-hover:text-indigo-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                            </svg>
+                        {/* Monday.com Inspired Mock Progress */}
+                        <div className="mt-4 pt-4 border-t border-gray-50 flex items-center justify-between">
+                            <div className="flex -space-x-2">
+                                <div className="w-6 h-6 rounded-full border-2 border-white bg-indigo-100 flex items-center justify-center text-[10px] font-bold text-indigo-600 self-center">B</div>
+                            </div>
+                            <div className="flex-1 max-w-[120px] ml-4">
+                                <div className="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
+                                    <div className="h-full bg-indigo-600 rounded-full" style={{ width: '65%' }}></div>
+                                </div>
+                            </div>
+                            <span className="text-[10px] font-black text-indigo-600 ml-2">%65 Tamamlandı</span>
                         </div>
                     </div>
                 ))}

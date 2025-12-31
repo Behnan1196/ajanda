@@ -140,13 +140,13 @@ export default function DashboardTabs({ user, initialTab }: DashboardTabsProps) 
                     <div>
                         <div className="flex items-center gap-2">
                             <h1 className="text-lg font-black text-gray-900 leading-none tracking-tight">
-                                {activeTab === 'program' ? 'Ajandam' :
+                                {activeTab === 'program' ? 'Ajanda' :
                                     activeTab === 'gelisim' ? 'Gelişim' :
-                                        activeTab === 'projeler' ? 'Projelerim' :
-                                            'Araçlar'}
+                                        activeTab === 'projeler' ? 'Projeler' :
+                                            'Uygulamalar'}
                             </h1>
-                            <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">
-                                KİŞİSEL
+                            <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-indigo-600 text-white shadow-sm shadow-indigo-100">
+                                YAŞAM MERKEZİ
                             </span>
                         </div>
                     </div>
@@ -186,7 +186,7 @@ export default function DashboardTabs({ user, initialTab }: DashboardTabsProps) 
                                         }}
                                         className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 transition flex items-center gap-2"
                                     >
-                                        <span>🎓</span> Koçluk Masası
+                                        <span>🎓</span> Sınav Koçluğu
                                     </button>
                                 )}
                                 <button
@@ -336,34 +336,45 @@ export default function DashboardTabs({ user, initialTab }: DashboardTabsProps) 
                             </div>
                         )}
                         {!activeTool && (
-                            <div className="space-y-4">
-                                <h2 className="text-xl font-bold text-gray-900 text-center py-4">Uygulama Seç</h2>
-                                <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-6">
+                                <div className="text-center py-6">
+                                    <h2 className="text-2xl font-black text-gray-900 tracking-tight">Merkez Uygulamaları</h2>
+                                    <p className="text-sm text-gray-500 mt-1">İhtiyacınız olan modülü seçin</p>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4 max-w-lg mx-auto">
                                     {userProfile?.roles?.includes('coach') && (
                                         <button
                                             onClick={() => setActiveTool('coaching')}
-                                            className="bg-white border border-gray-200 rounded-2xl p-6 text-center hover:border-purple-500 transition shadow-sm group"
+                                            className="bg-white border-2 border-transparent hover:border-purple-500 rounded-[2.5rem] p-6 text-center transition-all shadow-sm hover:shadow-xl hover:shadow-purple-50 group active:scale-95"
                                         >
-                                            <span className="text-3xl block mb-2 group-hover:scale-110 transition">🎓</span>
-                                            <h3 className="font-bold text-gray-900">Koçluk Masası</h3>
-                                            <p className="text-[10px] text-gray-500 mt-1">Öğrenci & Program yönetimi</p>
+                                            <div className="w-16 h-16 bg-purple-50 rounded-3xl mx-auto mb-3 flex items-center justify-center text-3xl group-hover:scale-110 transition-transform">🎓</div>
+                                            <h3 className="font-black text-gray-900 text-sm">Sınav Koçluğu</h3>
+                                            <p className="text-[9px] text-gray-400 font-bold uppercase tracking-tighter mt-1">Öğrenci Yönetimi</p>
                                         </button>
                                     )}
                                     <button
                                         onClick={() => setActiveTool('nutrition')}
-                                        className="bg-white border border-gray-200 rounded-2xl p-6 text-center hover:border-indigo-500 transition shadow-sm group"
+                                        className="bg-white border-2 border-transparent hover:border-emerald-500 rounded-[2.5rem] p-6 text-center transition-all shadow-sm hover:shadow-xl hover:shadow-emerald-50 group active:scale-95"
                                     >
-                                        <span className="text-3xl block mb-2 group-hover:scale-110 transition">🍏</span>
-                                        <h3 className="font-bold text-gray-900">Diyet Günlüğüm</h3>
-                                        <p className="text-[10px] text-gray-500 mt-1">Ölçüm ve yemek takibi</p>
+                                        <div className="w-16 h-16 bg-emerald-50 rounded-3xl mx-auto mb-3 flex items-center justify-center text-3xl group-hover:scale-110 transition-transform">🍏</div>
+                                        <h3 className="font-black text-gray-900 text-sm">Beslenme</h3>
+                                        <p className="text-[9px] text-gray-400 font-bold uppercase tracking-tighter mt-1">Diyet Takibi</p>
                                     </button>
                                     <button
                                         onClick={() => setActiveTool('music')}
-                                        className="bg-white border border-gray-200 rounded-2xl p-6 text-center hover:border-indigo-500 transition shadow-sm group"
+                                        className="bg-white border-2 border-transparent hover:border-amber-500 rounded-[2.5rem] p-6 text-center transition-all shadow-sm hover:shadow-xl hover:shadow-amber-50 group active:scale-95"
                                     >
-                                        <span className="text-3xl block mb-2 group-hover:scale-110 transition">🎸</span>
-                                        <h3 className="font-bold text-gray-900">Enstrüman Günlüğüm</h3>
-                                        <p className="text-[10px] text-gray-500 mt-1">Repertuvar ve pratik takibi</p>
+                                        <div className="w-16 h-16 bg-amber-50 rounded-3xl mx-auto mb-3 flex items-center justify-center text-3xl group-hover:scale-110 transition-transform">🎸</div>
+                                        <h3 className="font-black text-gray-900 text-sm">Müzik</h3>
+                                        <p className="text-[9px] text-gray-400 font-bold uppercase tracking-tighter mt-1">Enstrüman Pratiği</p>
+                                    </button>
+                                    <button
+                                        disabled
+                                        className="bg-gray-50/50 border-2 border-dashed border-gray-200 rounded-[2.5rem] p-6 text-center transition-all opacity-60 grayscale cursor-not-allowed"
+                                    >
+                                        <div className="w-16 h-16 bg-gray-100 rounded-3xl mx-auto mb-3 flex items-center justify-center text-3xl">💊</div>
+                                        <h3 className="font-black text-gray-900 text-sm">İlaç Takibi</h3>
+                                        <p className="text-[9px] text-gray-400 font-bold uppercase tracking-tighter mt-1">Çok Yakında</p>
                                     </button>
                                 </div>
                             </div>

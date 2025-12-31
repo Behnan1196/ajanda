@@ -60,7 +60,7 @@ export default function CoachingAppView({ onClose, userId, initialPersonaId }: C
             <div className="p-6 max-w-4xl mx-auto animate-in fade-in slide-in-from-bottom-4">
                 <div className="flex items-center justify-between mb-8">
                     <div>
-                        <h2 className="text-2xl font-black text-gray-900 tracking-tight">Koçluk Masası</h2>
+                        <h2 className="text-2xl font-black text-gray-900 tracking-tight">Sınav Koçluğu</h2>
                         <p className="text-gray-500 text-sm">Yönetmek istediğiniz öğrenciyi seçin.</p>
                     </div>
                     <button
@@ -118,7 +118,7 @@ export default function CoachingAppView({ onClose, userId, initialPersonaId }: C
                     </button>
                     <div>
                         <h3 className="font-bold text-sm leading-none">{selectedPersona.name}</h3>
-                        <p className="text-[10px] opacity-75 uppercase font-black tracking-tighter mt-1">Koçluk Yönetimi</p>
+                        <p className="text-[10px] opacity-75 uppercase font-black tracking-tighter mt-1">Sınav Koçluğu</p>
                     </div>
                 </div>
                 <div className="flex bg-white/10 p-1 rounded-xl">
