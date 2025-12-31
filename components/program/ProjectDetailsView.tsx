@@ -70,9 +70,9 @@ export default function ProjectDetailsView({ project, onBack }: ProjectDetailsVi
                             <div className="flex items-center gap-2 mt-1">
                                 {/* Status Badge */}
                                 <span className={`text-[9px] font-black uppercase tracking-tighter px-2 py-0.5 rounded-full ${project.metadata?.status === 'completed' ? 'bg-emerald-100 text-emerald-700' :
-                                        project.metadata?.status === 'active' ? 'bg-indigo-100 text-indigo-700' :
-                                            project.metadata?.status === 'on-hold' ? 'bg-amber-100 text-amber-700' :
-                                                'bg-gray-100 text-gray-600'
+                                    project.metadata?.status === 'active' ? 'bg-indigo-100 text-indigo-700' :
+                                        project.metadata?.status === 'on-hold' ? 'bg-amber-100 text-amber-700' :
+                                            'bg-gray-100 text-gray-600'
                                     }`}>
                                     {project.metadata?.status === 'completed' ? '✓ Tamamlandı' :
                                         project.metadata?.status === 'active' ? '● Aktif' :
@@ -83,9 +83,9 @@ export default function ProjectDetailsView({ project, onBack }: ProjectDetailsVi
                                 {/* Priority Badge */}
                                 {project.metadata?.priority && (
                                     <span className={`text-[9px] font-black uppercase tracking-tighter px-2 py-0.5 rounded-full ${project.metadata.priority === 'critical' ? 'bg-red-100 text-red-700' :
-                                            project.metadata.priority === 'high' ? 'bg-orange-100 text-orange-700' :
-                                                project.metadata.priority === 'medium' ? 'bg-blue-100 text-blue-700' :
-                                                    'bg-gray-100 text-gray-600'
+                                        project.metadata.priority === 'high' ? 'bg-orange-100 text-orange-700' :
+                                            project.metadata.priority === 'medium' ? 'bg-blue-100 text-blue-700' :
+                                                'bg-gray-100 text-gray-600'
                                         }`}>
                                         {project.metadata.priority === 'critical' ? '🔥 Kritik' :
                                             project.metadata.priority === 'high' ? '⬆ Yüksek' :
@@ -104,8 +104,8 @@ export default function ProjectDetailsView({ project, onBack }: ProjectDetailsVi
                                 key={tab.id}
                                 onClick={() => setActiveTab(tab.id)}
                                 className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold whitespace-nowrap transition-all ${activeTab === tab.id
-                                        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200'
-                                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200'
+                                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                                     }`}
                             >
                                 <span>{tab.icon}</span>
@@ -207,12 +207,25 @@ function TasksTab({ project, tasks, loading, onRefresh }: { project: Project; ta
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) return
 
+        // Get 'todo' task type ID
+        const { data: taskType } = await supabase
+            .from('task_types')
+            .select('id')
+            .eq('slug', 'todo')
+            .single()
+
+        if (!taskType) {
+            alert('Task type not found')
+            return
+        }
+
         const { error } = await supabase
             .from('tasks')
             .insert({
                 user_id: user.id,
                 title: milestoneName,
-                task_type_id: null, // We'll handle this
+                task_type_id: taskType.id,
+                created_by: user.id,
                 metadata: {
                     project_id: project.id,
                     is_project: true,
@@ -226,6 +239,8 @@ function TasksTab({ project, tasks, loading, onRefresh }: { project: Project; ta
             setMilestoneName('')
             setIsAddingMilestone(false)
             onRefresh()
+        } else {
+            alert('Milestone oluşturulamadı: ' + error.message)
         }
     }
 
@@ -322,13 +337,26 @@ function MilestoneCard({ milestone, tasks, projectId, onRefresh }: { milestone: 
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) return
 
+        // Get 'todo' task type ID
+        const { data: taskType } = await supabase
+            .from('task_types')
+            .select('id')
+            .eq('slug', 'todo')
+            .single()
+
+        if (!taskType) {
+            alert('Task type not found')
+            return
+        }
+
         const { error } = await supabase
             .from('tasks')
             .insert({
                 user_id: user.id,
                 title: taskName,
                 parent_id: milestone.id,
-                task_type_id: null,
+                task_type_id: taskType.id,
+                created_by: user.id,
                 metadata: {
                     project_id: projectId,
                     is_project: true,
@@ -343,6 +371,8 @@ function MilestoneCard({ milestone, tasks, projectId, onRefresh }: { milestone: 
             setTaskName('')
             setIsAddingTask(false)
             onRefresh()
+        } else {
+            alert('Görev oluşturulamadı: ' + error.message)
         }
     }
 
