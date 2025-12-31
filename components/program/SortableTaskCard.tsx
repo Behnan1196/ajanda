@@ -8,9 +8,12 @@ interface SortableTaskCardProps {
     onUncomplete: () => void
     onEdit: () => void
     onDelete: () => void
+    onStyle?: () => void
+    userId?: string
+    onAction?: (taskId: string, action: string, data?: any) => void
 }
 
-export default function SortableTaskCard({ task, onComplete, onUncomplete, onEdit, onDelete }: SortableTaskCardProps) {
+export default function SortableTaskCard({ task, onComplete, onUncomplete, onEdit, onDelete, onStyle, userId, onAction }: SortableTaskCardProps) {
     const {
         attributes,
         listeners,
@@ -34,8 +37,11 @@ export default function SortableTaskCard({ task, onComplete, onUncomplete, onEdi
                 onUncomplete={onUncomplete}
                 onEdit={onEdit}
                 onDelete={onDelete}
+                onStyle={onStyle}
                 dragAttributes={attributes}
                 dragListeners={listeners}
+                userId={userId}
+                onAction={onAction}
             />
         </div>
     )

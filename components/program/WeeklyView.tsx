@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { updateProjectTask } from '@/app/actions/projects'
-import WeeklyTaskCard from './WeeklyTaskCard'
+import SortableTaskCard from './SortableTaskCard'
+import TaskCard from './TaskCard'
 import TaskFormModal from './TaskFormModal'
 import QuickTodoModal from './QuickTodoModal'
 import TaskStyleModal from './TaskStyleModal'
@@ -36,35 +37,6 @@ interface Task {
     title: string
     description: string | null
     task_type_id: string
-    metadata: any
-    due_date: string | null
-    due_time: string | null
-    is_completed: boolean
-    is_private: boolean
-    task_types: {
-        name: string
-        slug: string
-        icon: string | null
-    }
-    relationship?: {
-        role_label: string
-    } | null
-    sort_order?: number
-}
-
-interface WeeklyViewProps {
-    userId: string
-    onDateSelect?: (date: Date) => void
-    relationshipId?: string // Context
-    isTutorMode?: boolean
-    initialDate?: Date | null
-}
-
-interface Task {
-    id: string
-    title: string
-    description: string | null
-    task_type_id: string
     project_id?: string
     metadata: any
     due_date: string | null
@@ -80,6 +52,16 @@ interface Task {
         role_label: string
     } | null
     sort_order?: number
+    parent_id?: string | null
+    children?: Task[]
+}
+
+interface WeeklyViewProps {
+    userId: string
+    onDateSelect?: (date: Date) => void
+    relationshipId?: string // Context
+    isTutorMode?: boolean
+    initialDate?: Date | null
 }
 
 export default function WeeklyView({
@@ -99,6 +81,40 @@ export default function WeeklyView({
         const localDate = new Date(date.getTime() - (offset * 60 * 1000))
         return localDate.toISOString().split('T')[0]
     }
+
+    const buildTaskTree = (flatTasks: Task[]) => {
+        const taskMap = new Map<string, any>()
+        const roots: any[] = []
+
+        flatTasks.forEach(task => {
+            taskMap.set(task.id, { ...task, children: [] })
+        })
+
+        flatTasks.forEach(task => {
+            const taskInMap = taskMap.get(task.id)
+            if (task.parent_id && taskMap.has(task.parent_id)) {
+                taskMap.get(task.parent_id).children.push(taskInMap)
+            } else {
+                roots.push(taskInMap)
+            }
+        })
+
+        return roots
+    }
+
+    const handleTaskAction = (taskId: string, action: string) => {
+        const allTasks = Array.from(weekTasks.values()).flat()
+        const task = allTasks.find(t => t.id === taskId)
+
+        switch (action) {
+            case 'complete': handleTaskComplete(taskId); break
+            case 'uncomplete': handleTaskUncomplete(taskId); break
+            case 'edit': if (task) handleTaskEdit(task); break
+            case 'delete': handleTaskDelete(taskId); break
+            case 'style': if (task) setStyleModalConfig({ task: task, isOpen: true }); break
+        }
+    }
+
 
     const [showTaskModal, setShowTaskModal] = useState(false)
     const [showQuickTodoModal, setShowQuickTodoModal] = useState(false)
@@ -320,6 +336,13 @@ export default function WeeklyView({
     // Flatten all tasks for finding active task during drag
     const dataFlatten: Task[] = []
     weekTasks.forEach(tasks => dataFlatten.push(...tasks))
+    specializedTasks.forEach(tasks => dataFlatten.push(...tasks))
+
+    const isThisWeek = () => {
+        const today = new Date()
+        const target = getStartOfWeek(today)
+        return currentWeekStart.getTime() === target.getTime()
+    }
 
     const findContainer = (id: string) => {
         if (weekTasks.has(id)) return id
@@ -427,51 +450,54 @@ export default function WeeklyView({
             return // Exit early as specialized group drag is handled
         }
 
-        // If moved to a different container or reordered within same
-        if (activeContainer !== overContainer || activeId !== overId) {
-            const items = [...(weekTasks.get(overContainer) || [])]
-            const oldIndex = items.findIndex(t => t.id === activeId)
-            const newIndex = items.findIndex(t => t.id === overId)
+        // 1. Update LOCAL state for smooth UI
+        const items = [...(weekTasks.get(overContainer) || [])]
+        const oldIndex = items.findIndex(t => t.id === activeId)
+        let newIndex = items.findIndex(t => t.id === overId)
 
-            // Calculate final state
-            const finalItems = activeId !== overId && activeContainer === overContainer
-                ? arrayMove(items, oldIndex, newIndex)
-                : items
+        if (newIndex === -1 && overId === overContainer) {
+            // Dropped on container itself - put at end
+            newIndex = items.length
+        }
 
-            // 2. Update REMOTE DB (Supabase)
-            for (let i = 0; i < finalItems.length; i++) {
-                const task = finalItems[i]
+        // Calculate final state
+        const finalItems = activeId !== overId && activeContainer === overContainer
+            ? arrayMove(items, oldIndex, newIndex === -1 ? items.length - 1 : newIndex)
+            : items
 
-                // If this is the moved task AND container changed, use server action to handle recursion
-                if (task.id === activeId && activeContainer !== overContainer && task.project_id) {
-                    await updateProjectTask(task.project_id, task.id, {
+        // 2. Update REMOTE DB (Supabase)
+        for (let i = 0; i < finalItems.length; i++) {
+            const task = finalItems[i]
+
+            // If this is the moved task AND container changed, use server action to handle recursion
+            if (task.id === activeId && activeContainer !== overContainer && task.project_id) {
+                await updateProjectTask(task.project_id, task.id, {
+                    sort_order: i,
+                    due_date: overContainer
+                })
+            } else {
+                // Regular update for sorting or non-project tasks
+                await supabase
+                    .from('tasks')
+                    .update({
                         sort_order: i,
                         due_date: overContainer
                     })
-                } else {
-                    // Regular update for sorting or non-project tasks
-                    await supabase
-                        .from('tasks')
-                        .update({
-                            sort_order: i,
-                            due_date: overContainer
-                        })
-                        .eq('id', task.id)
-                }
+                    .eq('id', task.id)
             }
-
-            if (activeContainer !== overContainer) {
-                const originItems = [...(weekTasks.get(activeContainer) || [])]
-                for (let i = 0; i < originItems.length; i++) {
-                    await supabase
-                        .from('tasks')
-                        .update({ sort_order: i })
-                        .eq('id', originItems[i].id)
-                }
-            }
-
-            loadWeekTasks(true)
         }
+
+        if (activeContainer !== overContainer) {
+            const originItems = [...(weekTasks.get(activeContainer) || [])]
+            for (let i = 0; i < originItems.length; i++) {
+                await supabase
+                    .from('tasks')
+                    .update({ sort_order: i })
+                    .eq('id', originItems[i].id)
+            }
+        }
+
+        loadWeekTasks(true)
     }
 
     const weekDaysArr = getDaysInWeek()
@@ -497,9 +523,11 @@ export default function WeeklyView({
 
                 <div className="text-center">
                     <h2 className="text-base font-black text-gray-900 capitalize tracking-tight">{monthName}</h2>
-                    <button onClick={goToThisWeek} className="text-[10px] text-indigo-600 font-black uppercase tracking-widest hover:text-indigo-800 transition">
-                        Bu Hafta
-                    </button>
+                    {!isThisWeek() && (
+                        <button onClick={goToThisWeek} className="text-[10px] text-indigo-600 font-black uppercase tracking-widest hover:text-indigo-800 transition">
+                            Bu Hafta
+                        </button>
+                    )}
                 </div>
 
                 <button onClick={() => navigateWeek('next')} className="p-2 hover:bg-white rounded-xl transition-all active:scale-90 text-gray-400 hover:text-indigo-600 shadow-sm border border-transparent hover:border-gray-100">
@@ -576,12 +604,12 @@ export default function WeeklyView({
                                     <div className="flex-1">
                                         <SortableContext
                                             id={dateStr}
-                                            items={tasksForDay.map(t => t.id)}
+                                            items={buildTaskTree(tasksForDay).map(t => t.id)}
                                             strategy={verticalListSortingStrategy}
                                         >
                                             <div className="space-y-2 min-h-[50px]">
-                                                {tasksForDay.map((task) => (
-                                                    <WeeklyTaskCard
+                                                {buildTaskTree(tasksForDay).map((task) => (
+                                                    <SortableTaskCard
                                                         key={task.id}
                                                         task={task}
                                                         onEdit={() => handleTaskEdit(task)}
@@ -590,6 +618,7 @@ export default function WeeklyView({
                                                         onUncomplete={() => handleTaskUncomplete(task.id)}
                                                         onStyle={() => setStyleModalConfig({ task: task, isOpen: true })}
                                                         userId={userId}
+                                                        onAction={handleTaskAction}
                                                     />
                                                 ))}
                                                 {tasksForDay.length === 0 && (
@@ -631,13 +660,12 @@ export default function WeeklyView({
                                 })()
                             ) : (
                                 dataFlatten.find(t => t.id === activeId) && (
-                                    <WeeklyTaskCard
-                                        task={dataFlatten.find(t => t.id === activeId)}
+                                    <TaskCard
+                                        task={dataFlatten.find(t => t.id === activeId) as any}
                                         onEdit={() => { }}
                                         onDelete={() => { }}
                                         onComplete={() => { }}
                                         onUncomplete={() => { }}
-                                        isOverlay
                                     />
                                 )
                             )}

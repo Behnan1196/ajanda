@@ -178,17 +178,27 @@ export default function DashboardTabs({ user, initialTab }: DashboardTabsProps) 
                                     <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider">Hesabım</p>
                                     <p className="text-sm text-gray-600 truncate">{user.email}</p>
                                 </div>
-                                {userProfile?.roles?.includes('coach') && (
+                                {userProfile?.roles?.includes('admin') && (
                                     <button
                                         onClick={() => {
-                                            setActiveTool('coaching')
+                                            router.push('/admin')
                                             setIsDropdownOpen(false)
                                         }}
                                         className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 transition flex items-center gap-2"
                                     >
-                                        <span>🎓</span> Sınav Koçluğu
+                                        <span>⚙️</span> Admin Paneli
                                     </button>
                                 )}
+                                <button
+                                    onClick={() => {
+                                        // Logic for settings will be added
+                                        alert('Ayarlar yakında eklenecek (Bildirimler vb.)')
+                                        setIsDropdownOpen(false)
+                                    }}
+                                    className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 transition flex items-center gap-2"
+                                >
+                                    <span>🔔</span> Ayarlar
+                                </button>
                                 <button
                                     onClick={() => {
                                         if (confirm('Sistemi sıfırlamak istediğinize emin misiniz? Bu işlem cihazınızdaki önbelleği temizleyecektir.')) {

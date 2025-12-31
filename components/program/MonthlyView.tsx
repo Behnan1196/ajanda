@@ -21,6 +21,11 @@ export default function MonthlyView({ userId, onDateSelect }: MonthlyViewProps) 
     const [loading, setLoading] = useState(true)
     const supabase = createClient()
 
+    const isThisMonth = () => {
+        const today = new Date()
+        return currentMonth.getMonth() === today.getMonth() && currentMonth.getFullYear() === today.getFullYear()
+    }
+
     useEffect(() => {
         loadMonthData()
     }, [userId, currentMonth])
@@ -180,12 +185,14 @@ export default function MonthlyView({ userId, onDateSelect }: MonthlyViewProps) 
                     </button>
                 </div>
 
-                <button
-                    onClick={goToToday}
-                    className="w-full px-4 py-2 text-[10px] bg-white text-indigo-600 rounded-xl hover:bg-indigo-50 transition-all font-black uppercase tracking-widest border border-indigo-100 shadow-sm active:scale-95"
-                >
-                    📅 Bu Aya Dön
-                </button>
+                {!isThisMonth() && (
+                    <button
+                        onClick={goToToday}
+                        className="w-full px-4 py-2 text-[10px] bg-white text-indigo-600 rounded-xl hover:bg-indigo-50 transition-all font-black uppercase tracking-widest border border-indigo-100 shadow-sm active:scale-95"
+                    >
+                        📅 Bu Aya Dön
+                    </button>
+                )}
             </div>
 
             {/* Calendar Grid */}

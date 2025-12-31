@@ -42,6 +42,8 @@ interface Task {
         icon: string | null
     }
     is_private?: boolean
+    parent_id?: string | null
+    children?: Task[]
 }
 
 interface TodayViewProps {
@@ -58,6 +60,46 @@ export default function TodayView({ userId, initialDate, isTutorMode = false }: 
     const [editingTask, setEditingTask] = useState<Task | null>(null)
     const [selectedDate, setSelectedDate] = useState(initialDate || new Date())
     const supabase = createClient()
+
+    const buildTaskTree = (flatTasks: Task[]) => {
+        const taskMap = new Map<string, any>()
+        const roots: any[] = []
+
+        flatTasks.forEach(task => {
+            taskMap.set(task.id, { ...task, children: [] })
+        })
+
+        flatTasks.forEach(task => {
+            const taskInMap = taskMap.get(task.id)
+            if (task.parent_id && taskMap.has(task.parent_id)) {
+                taskMap.get(task.parent_id).children.push(taskInMap)
+            } else {
+                roots.push(taskInMap)
+            }
+        })
+
+        return roots
+    }
+
+    const taskTree = buildTaskTree(tasks)
+
+    const handleTaskAction = (taskId: string, action: string) => {
+        switch (action) {
+            case 'complete': handleTaskComplete(taskId); break
+            case 'uncomplete': handleTaskUncomplete(taskId); break
+            case 'edit': {
+                const task = tasks.find(t => t.id === taskId)
+                if (task) handleTaskEdit(task)
+                break
+            }
+            case 'delete': handleTaskDelete(taskId); break
+            case 'style': {
+                // Style currently not implemented in TodayView but could be
+                alert('Stil Düzenleme Ajanda görünümünde yakında aktif olacak.')
+                break
+            }
+        }
+    }
 
     const toLocalISOString = (date: Date) => {
         const offset = date.getTimezoneOffset()
@@ -297,9 +339,9 @@ export default function TodayView({ userId, initialDate, isTutorMode = false }: 
             <DailyPracticeCard userId={userId} date={selectedDate} />
 
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                <SortableContext items={tasks.map(t => t.id)} strategy={verticalListSortingStrategy}>
+                <SortableContext items={taskTree.map(t => t.id)} strategy={verticalListSortingStrategy}>
                     <div className="space-y-3 mb-20">
-                        {tasks.map((task) => (
+                        {taskTree.map((task) => (
                             <SortableTaskCard
                                 key={task.id}
                                 task={task}
@@ -307,10 +349,11 @@ export default function TodayView({ userId, initialDate, isTutorMode = false }: 
                                 onUncomplete={() => handleTaskUncomplete(task.id)}
                                 onEdit={() => handleTaskEdit(task)}
                                 onDelete={() => handleTaskDelete(task.id)}
+                                onAction={handleTaskAction}
                             />
                         ))}
 
-                        {tasks.length === 0 && (
+                        {taskTree.length === 0 && (
                             <div className="text-center py-20 bg-white/50 rounded-3xl border-2 border-dashed border-gray-200 flex flex-col items-center group hover:border-indigo-300 transition-colors">
                                 <div className="w-16 h-16 bg-gray-50 rounded-2xl flex items-center justify-center text-3xl mb-4 group-hover:scale-110 transition-transform">✨</div>
                                 <p className="text-gray-900 font-bold">Harika bir gün mü?</p>

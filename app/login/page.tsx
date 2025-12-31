@@ -42,10 +42,10 @@ export default function LoginPage() {
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 px-4">
             <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8">
                 <div className="text-center mb-8">
-                    <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                        Yaşam Planlayıcı
+                    <h1 className="text-3xl font-black text-gray-900 mb-2 tracking-tight">
+                        Yaşam Yönetim Merkezi
                     </h1>
-                    <p className="text-gray-600">Hesabınıza giriş yapın</p>
+                    <p className="text-gray-500 text-sm">Hesabınıza giriş yapın</p>
                 </div>
 
                 <form onSubmit={handleLogin} className="space-y-6">
@@ -114,9 +114,6 @@ export default function LoginPage() {
                     </button>
                 </form>
 
-                <div className="mt-6 text-center text-sm text-gray-600">
-                    <p>Test için: demo@example.com / password123</p>
-                </div>
             </div>
         </div>
     )

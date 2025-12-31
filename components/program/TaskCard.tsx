@@ -30,6 +30,8 @@ interface TaskCardProps {
         topics?: {
             name: string
         } | null
+        created_by?: string
+        children?: any[]
     }
     onComplete: () => void
     onUncomplete: () => void
@@ -38,6 +40,8 @@ interface TaskCardProps {
     onStyle?: () => void
     dragAttributes?: any
     dragListeners?: any
+    userId?: string
+    onAction?: (taskId: string, action: string, data?: any) => void
 }
 
 // Helper to find YouTube URL in text
@@ -56,9 +60,14 @@ export default function TaskCard({
     onDelete,
     onStyle,
     dragAttributes,
-    dragListeners
+    dragListeners,
+    userId,
+    onAction
 }: TaskCardProps) {
-    const { task_types, title, description, metadata, due_time, is_completed } = task
+    const { task_types, title, description, metadata, due_time, is_completed, created_by, children } = task
+
+    const canModify = !userId || created_by === userId
+    const isGroup = children && children.length > 0
 
     // Determine video URL source order: metadata.video_url > description > notes
     const videoUrl = metadata.video_url || findYouTubeUrl(description) || findYouTubeUrl(metadata.notes)
@@ -182,8 +191,8 @@ export default function TaskCard({
                     <TaskMenu
                         taskId={task.id}
                         isCompleted={is_completed}
-                        onEdit={onEdit}
-                        onDelete={onDelete}
+                        onEdit={canModify ? onEdit : undefined}
+                        onDelete={canModify ? onDelete : undefined}
                         onUncomplete={onUncomplete}
                         onStyle={onStyle}
                     />
@@ -202,6 +211,25 @@ export default function TaskCard({
                     </button>
                 </div>
             </div>
+
+            {/* Hierarchical Children (Grouping) */}
+            {isGroup && (
+                <div className="mt-3 ml-4 pl-4 border-l-2 border-indigo-100 space-y-2 pb-1">
+                    {children.map((child: any) => (
+                        <TaskCard
+                            key={child.id}
+                            task={child}
+                            onComplete={() => onAction?.(child.id, 'complete')}
+                            onUncomplete={() => onAction?.(child.id, 'uncomplete')}
+                            onEdit={() => onAction?.(child.id, 'edit')}
+                            onDelete={() => onAction?.(child.id, 'delete')}
+                            onStyle={() => onAction?.(child.id, 'style')}
+                            onAction={onAction}
+                            userId={userId}
+                        />
+                    ))}
+                </div>
+            )}
         </div>
     )
 }
