@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Project } from '@/app/actions/projects'
 import { createClient } from '@/lib/supabase/client'
 
