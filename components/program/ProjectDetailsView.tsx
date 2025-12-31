@@ -767,8 +767,8 @@ function ResourcesTab({ project }: { project: Project }) {
                                 type="button"
                                 onClick={() => setResourceType('link')}
                                 className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition ${resourceType === 'link'
-                                        ? 'bg-indigo-600 text-white'
-                                        : 'bg-white text-gray-600 hover:bg-gray-100'
+                                    ? 'bg-indigo-600 text-white'
+                                    : 'bg-white text-gray-600 hover:bg-gray-100'
                                     }`}
                             >
                                 🔗 Link
@@ -777,8 +777,8 @@ function ResourcesTab({ project }: { project: Project }) {
                                 type="button"
                                 onClick={() => setResourceType('document')}
                                 className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition ${resourceType === 'document'
-                                        ? 'bg-indigo-600 text-white'
-                                        : 'bg-white text-gray-600 hover:bg-gray-100'
+                                    ? 'bg-indigo-600 text-white'
+                                    : 'bg-white text-gray-600 hover:bg-gray-100'
                                     }`}
                             >
                                 📄 Döküman
@@ -787,8 +787,8 @@ function ResourcesTab({ project }: { project: Project }) {
                                 type="button"
                                 onClick={() => setResourceType('note')}
                                 className={`flex-1 py-2 px-3 rounded-lg text-sm font-medium transition ${resourceType === 'note'
-                                        ? 'bg-indigo-600 text-white'
-                                        : 'bg-white text-gray-600 hover:bg-gray-100'
+                                    ? 'bg-indigo-600 text-white'
+                                    : 'bg-white text-gray-600 hover:bg-gray-100'
                                     }`}
                             >
                                 📝 Not
@@ -915,13 +915,221 @@ function ResourcesTab({ project }: { project: Project }) {
 
 // Notes Tab Component
 function NotesTab({ project }: { project: Project }) {
+    const [notes, setNotes] = useState<any[]>([])
+    const [loading, setLoading] = useState(true)
+    const [isAdding, setIsAdding] = useState(false)
+    const [editingNote, setEditingNote] = useState<any | null>(null)
+    const [title, setTitle] = useState('')
+    const [content, setContent] = useState('')
+
+    useEffect(() => {
+        loadNotes()
+    }, [project.id])
+
+    const loadNotes = async () => {
+        setLoading(true)
+        const supabase = createClient()
+        const { data, error } = await supabase
+            .from('project_resources')
+            .select('*')
+            .eq('project_id', project.id)
+            .eq('type', 'note')
+            .is('task_id', null) // Only project-level notes
+            .order('created_at', { ascending: false })
+
+        if (!error && data) {
+            setNotes(data)
+        }
+        setLoading(false)
+    }
+
+    const handleSaveNote = async (e: React.FormEvent) => {
+        e.preventDefault()
+        if (!title.trim() || !content.trim()) return
+
+        const supabase = createClient()
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return
+
+        if (editingNote) {
+            // Update existing note
+            const { error } = await supabase
+                .from('project_resources')
+                .update({
+                    name: title.trim(),
+                    content: content.trim()
+                })
+                .eq('id', editingNote.id)
+
+            if (!error) {
+                setTitle('')
+                setContent('')
+                setEditingNote(null)
+                setIsAdding(false)
+                loadNotes()
+            }
+        } else {
+            // Create new note
+            const { error } = await supabase
+                .from('project_resources')
+                .insert({
+                    project_id: project.id,
+                    name: title.trim(),
+                    type: 'note',
+                    content: content.trim(),
+                    created_by: user.id
+                })
+
+            if (!error) {
+                setTitle('')
+                setContent('')
+                setIsAdding(false)
+                loadNotes()
+            } else {
+                alert('Not eklenemedi: ' + error.message)
+            }
+        }
+    }
+
+    const handleEdit = (note: any) => {
+        setEditingNote(note)
+        setTitle(note.name)
+        setContent(note.content || '')
+        setIsAdding(true)
+    }
+
+    const handleDelete = async (id: string) => {
+        if (!confirm('Bu notu silmek istediğinize emin misiniz?')) return
+
+        const supabase = createClient()
+        const { error } = await supabase
+            .from('project_resources')
+            .delete()
+            .eq('id', id)
+
+        if (!error) {
+            loadNotes()
+        }
+    }
+
+    const handleCancel = () => {
+        setIsAdding(false)
+        setEditingNote(null)
+        setTitle('')
+        setContent('')
+    }
+
     return (
-        <div className="bg-white rounded-2xl p-6 border border-gray-200 min-h-[400px] flex items-center justify-center">
-            <div className="text-center">
-                <div className="text-6xl mb-4">📝</div>
-                <h3 className="text-xl font-bold text-gray-900 mb-2">Notlar</h3>
-                <p className="text-gray-500">Week 5'te eklenecek</p>
+        <div className="space-y-4">
+            {/* Header */}
+            <div className="flex justify-between items-center">
+                <h2 className="text-lg font-bold text-gray-900">Proje Notları</h2>
+                {!isAdding && (
+                    <button
+                        onClick={() => setIsAdding(true)}
+                        className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition"
+                    >
+                        + Not Ekle
+                    </button>
+                )}
             </div>
+
+            {/* Add/Edit Note Form */}
+            {isAdding && (
+                <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100">
+                    <form onSubmit={handleSaveNote}>
+                        <input
+                            type="text"
+                            placeholder="Not başlığı (Örn: Toplantı Notları - 31 Aralık)"
+                            value={title}
+                            onChange={(e) => setTitle(e.target.value)}
+                            className="w-full p-3 rounded-lg border-0 shadow-sm focus:ring-2 focus:ring-indigo-500 mb-3 font-bold"
+                            autoFocus
+                        />
+                        <textarea
+                            placeholder="Not içeriği...&#10;&#10;İpucu: Markdown formatını kullanabilirsiniz:&#10;- **Kalın** için **metin**&#10;- *İtalik* için *metin*&#10;- Liste için - veya 1.&#10;- Başlık için # veya ##"
+                            value={content}
+                            onChange={(e) => setContent(e.target.value)}
+                            className="w-full p-3 rounded-lg border-0 shadow-sm focus:ring-2 focus:ring-indigo-500 mb-3 min-h-[200px] font-mono text-sm"
+                        />
+                        <div className="flex gap-2">
+                            <button
+                                type="submit"
+                                className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 transition"
+                            >
+                                {editingNote ? 'Güncelle' : 'Kaydet'}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleCancel}
+                                className="px-4 py-2 bg-white text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-100 transition"
+                            >
+                                Vazgeç
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            )}
+
+            {/* Notes List */}
+            {loading ? (
+                <div className="flex justify-center py-12">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+                </div>
+            ) : notes.length === 0 ? (
+                <div className="bg-white rounded-2xl p-12 border-2 border-dashed border-gray-200 text-center">
+                    <div className="text-4xl mb-3">📝</div>
+                    <p className="text-gray-500 text-sm">Henüz not eklenmemiş</p>
+                    <p className="text-gray-400 text-xs mt-2">Toplantı notları, kararlar ve changelog için not ekleyin</p>
+                </div>
+            ) : (
+                <div className="space-y-4">
+                    {notes.map((note) => (
+                        <div
+                            key={note.id}
+                            className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-shadow"
+                        >
+                            <div className="flex items-start justify-between mb-3">
+                                <div className="flex-1">
+                                    <h3 className="text-lg font-bold text-gray-900 mb-1">{note.name}</h3>
+                                    <div className="text-xs text-gray-400">
+                                        {new Date(note.created_at).toLocaleDateString('tr-TR', {
+                                            day: 'numeric',
+                                            month: 'long',
+                                            year: 'numeric',
+                                            hour: '2-digit',
+                                            minute: '2-digit'
+                                        })}
+                                    </div>
+                                </div>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => handleEdit(note)}
+                                        className="p-2 text-gray-400 hover:text-indigo-600 transition"
+                                        title="Düzenle"
+                                    >
+                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                        </svg>
+                                    </button>
+                                    <button
+                                        onClick={() => handleDelete(note.id)}
+                                        className="p-2 text-gray-400 hover:text-red-500 transition"
+                                        title="Sil"
+                                    >
+                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                            <div className="prose prose-sm max-w-none">
+                                <pre className="whitespace-pre-wrap font-sans text-sm text-gray-700 leading-relaxed">{note.content}</pre>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
         </div>
     )
 }
