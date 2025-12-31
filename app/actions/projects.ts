@@ -13,6 +13,12 @@ export interface Project {
     start_date: string | null
     end_date: string | null
     settings: any
+    metadata?: {
+        status?: 'planning' | 'active' | 'on-hold' | 'completed'
+        priority?: 'low' | 'medium' | 'high' | 'critical'
+        color?: string
+        progress_percentage?: number
+    }
     created_at: string
 }
 
@@ -47,7 +53,16 @@ export async function getProjects(userId?: string, filter: 'all' | 'personal' | 
     return { data: data as Project[] }
 }
 
-export async function createProject(name: string, description?: string) {
+export async function createProject(
+    name: string,
+    description?: string,
+    metadata?: {
+        status?: 'planning' | 'active' | 'on-hold' | 'completed'
+        priority?: 'low' | 'medium' | 'high' | 'critical'
+        color?: string
+        progress_percentage?: number
+    }
+) {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return { error: 'Oturum açılmamış' }
@@ -58,7 +73,8 @@ export async function createProject(name: string, description?: string) {
             user_id: user.id,
             name,
             description,
-            status: 'active'
+            status: 'active',
+            metadata: metadata || { status: 'planning', priority: 'medium' }
         })
         .select()
         .single()

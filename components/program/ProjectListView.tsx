@@ -13,6 +13,8 @@ export default function ProjectListView({ onProjectSelect, userId, filter = 'all
     const [name, setName] = useState('')
     const [isCreating, setIsCreating] = useState(false)
     const [editingProject, setEditingProject] = useState<Project | null>(null)
+    const [status, setStatus] = useState<'planning' | 'active' | 'on-hold' | 'completed'>('planning')
+    const [priority, setPriority] = useState<'low' | 'medium' | 'high' | 'critical'>('medium')
 
     const loadProjects = async () => {
         setLoading(true)
@@ -31,10 +33,16 @@ export default function ProjectListView({ onProjectSelect, userId, filter = 'all
         e.preventDefault()
         if (!name.trim()) return
 
-        const result = await createProject(name)
+        const result = await createProject(name, undefined, {
+            status,
+            priority,
+            progress_percentage: 0
+        })
 
         if (result.data) {
             setName('')
+            setStatus('planning')
+            setPriority('medium')
             setIsCreating(false)
             loadProjects()
         } else if (result.error) {
@@ -46,10 +54,19 @@ export default function ProjectListView({ onProjectSelect, userId, filter = 'all
         e.preventDefault()
         if (!editingProject || !name.trim()) return
 
-        const result = await updateProject(editingProject.id, { name })
+        const result = await updateProject(editingProject.id, {
+            name,
+            metadata: {
+                status,
+                priority,
+                progress_percentage: editingProject.metadata?.progress_percentage || 0
+            }
+        })
 
         if (result.data) {
             setName('')
+            setStatus('planning')
+            setPriority('medium')
             setEditingProject(null)
             loadProjects()
         } else if (result.error) {
@@ -60,6 +77,8 @@ export default function ProjectListView({ onProjectSelect, userId, filter = 'all
     const startEdit = (project: Project) => {
         setEditingProject(project)
         setName(project.name)
+        setStatus(project.metadata?.status || 'planning')
+        setPriority(project.metadata?.priority || 'medium')
         setIsCreating(false)
     }
 
@@ -113,6 +132,38 @@ export default function ProjectListView({ onProjectSelect, userId, filter = 'all
                         className="w-full p-3 rounded-xl border-0 shadow-sm focus:ring-2 focus:ring-indigo-500 mb-3"
                         autoFocus
                     />
+
+                    <div className="grid grid-cols-2 gap-3 mb-3">
+                        {/* Status Selection */}
+                        <div>
+                            <label className="text-xs font-bold text-gray-700 mb-1 block">Durum</label>
+                            <select
+                                value={status}
+                                onChange={(e) => setStatus(e.target.value as any)}
+                                className="w-full p-2.5 rounded-lg border-0 shadow-sm focus:ring-2 focus:ring-indigo-500 text-sm"
+                            >
+                                <option value="planning">○ Planlama</option>
+                                <option value="active">● Aktif</option>
+                                <option value="on-hold">⏸ Beklemede</option>
+                                <option value="completed">✓ Tamamlandı</option>
+                            </select>
+                        </div>
+
+                        {/* Priority Selection */}
+                        <div>
+                            <label className="text-xs font-bold text-gray-700 mb-1 block">Öncelik</label>
+                            <select
+                                value={priority}
+                                onChange={(e) => setPriority(e.target.value as any)}
+                                className="w-full p-2.5 rounded-lg border-0 shadow-sm focus:ring-2 focus:ring-indigo-500 text-sm"
+                            >
+                                <option value="low">⬇ Düşük</option>
+                                <option value="medium">➡ Orta</option>
+                                <option value="high">⬆ Yüksek</option>
+                                <option value="critical">🔥 Kritik</option>
+                            </select>
+                        </div>
+                    </div>
                     <div className="flex gap-2">
                         <button
                             type="submit"
@@ -152,10 +203,33 @@ export default function ProjectListView({ onProjectSelect, userId, filter = 'all
                                 </div>
                                 <div>
                                     <h3 className="font-black text-gray-900 text-lg group-hover:text-indigo-600 transition-colors">{project.name}</h3>
-                                    <div className="flex items-center gap-3 mt-1">
-                                        <span className="text-[10px] font-black uppercase tracking-tighter px-2 py-0.5 bg-gray-100 text-gray-500 rounded-full group-hover:bg-indigo-100 group-hover:text-indigo-600 transition-colors">
-                                            Aktif Süreç
+                                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                        {/* Status Badge */}
+                                        <span className={`text-[9px] font-black uppercase tracking-tighter px-2 py-0.5 rounded-full ${project.metadata?.status === 'completed' ? 'bg-emerald-100 text-emerald-700' :
+                                            project.metadata?.status === 'active' ? 'bg-indigo-100 text-indigo-700' :
+                                                project.metadata?.status === 'on-hold' ? 'bg-amber-100 text-amber-700' :
+                                                    'bg-gray-100 text-gray-600'
+                                            }`}>
+                                            {project.metadata?.status === 'completed' ? '✓ Tamamlandı' :
+                                                project.metadata?.status === 'active' ? '● Aktif' :
+                                                    project.metadata?.status === 'on-hold' ? '⏸ Beklemede' :
+                                                        '○ Planlama'}
                                         </span>
+
+                                        {/* Priority Badge */}
+                                        {project.metadata?.priority && (
+                                            <span className={`text-[9px] font-black uppercase tracking-tighter px-2 py-0.5 rounded-full ${project.metadata.priority === 'critical' ? 'bg-red-100 text-red-700' :
+                                                project.metadata.priority === 'high' ? 'bg-orange-100 text-orange-700' :
+                                                    project.metadata.priority === 'medium' ? 'bg-blue-100 text-blue-700' :
+                                                        'bg-gray-100 text-gray-600'
+                                                }`}>
+                                                {project.metadata.priority === 'critical' ? '🔥 Kritik' :
+                                                    project.metadata.priority === 'high' ? '⬆ Yüksek' :
+                                                        project.metadata.priority === 'medium' ? '➡ Orta' :
+                                                            '⬇ Düşük'}
+                                            </span>
+                                        )}
+
                                         <span className="text-[10px] font-bold text-gray-400">
                                             📅 {new Date(project.created_at).toLocaleDateString('tr-TR')}
                                         </span>
@@ -198,10 +272,13 @@ export default function ProjectListView({ onProjectSelect, userId, filter = 'all
                             </div>
                             <div className="flex-1 max-w-[120px] ml-4">
                                 <div className="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
-                                    <div className="h-full bg-indigo-600 rounded-full" style={{ width: '65%' }}></div>
+                                    <div
+                                        className="h-full bg-indigo-600 rounded-full transition-all duration-300"
+                                        style={{ width: `${project.metadata?.progress_percentage || 0}%` }}
+                                    ></div>
                                 </div>
                             </div>
-                            <span className="text-[10px] font-black text-indigo-600 ml-2">%65 Tamamlandı</span>
+                            <span className="text-[10px] font-black text-indigo-600 ml-2">%{project.metadata?.progress_percentage || 0} Tamamlandı</span>
                         </div>
                     </div>
                 ))}

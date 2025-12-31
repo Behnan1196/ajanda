@@ -296,23 +296,6 @@ export default function DashboardTabs({ user, initialTab }: DashboardTabsProps) 
                     </div>
                 )}
 
-                {activeTab === 'projeler' && (
-                    <div className="p-4">
-                        {selectedProject ? (
-                            <ProjectDetailsView project={selectedProject} onBack={() => setSelectedProject(null)} />
-                        ) : (
-                            <div className="space-y-4">
-                                <h2 className="text-xl font-bold text-gray-900">Projelerim</h2>
-                                <ProjectListView
-                                    onProjectSelect={setSelectedProject}
-                                    userId={targetUserId}
-                                    filter='personal'
-                                />
-                            </div>
-                        )}
-                    </div>
-                )}
-
                 {activeTab === 'araclar' && (
                     <div className="p-4">
                         {activeTool === 'nutrition' && (
